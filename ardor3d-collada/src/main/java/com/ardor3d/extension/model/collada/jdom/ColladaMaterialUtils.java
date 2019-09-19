@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.model.collada.jdom;
@@ -20,20 +20,16 @@ import com.ardor3d.extension.model.collada.jdom.data.DataCache;
 import com.ardor3d.extension.model.collada.jdom.data.MaterialInfo;
 import com.ardor3d.extension.model.collada.jdom.data.SamplerTypes;
 import com.ardor3d.image.Texture;
-import com.ardor3d.image.Texture.ApplyMode;
-import com.ardor3d.image.Texture.CombinerFunctionRGB;
-import com.ardor3d.image.Texture.CombinerOperandRGB;
-import com.ardor3d.image.Texture.CombinerSource;
 import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.MathUtils;
+import com.ardor3d.math.type.ReadOnlyColorRGBA;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
-import com.ardor3d.renderer.state.MaterialState;
-import com.ardor3d.renderer.state.MaterialState.MaterialFace;
 import com.ardor3d.renderer.state.RenderState;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.scenegraph.Mesh;
+import com.ardor3d.surface.ColorSurface;
 import com.ardor3d.util.TextureManager;
 import com.ardor3d.util.resource.ResourceSource;
 
@@ -60,7 +56,7 @@ public class ColladaMaterialUtils {
 
     /**
      * Find and apply the given material to the given Mesh.
-     * 
+     *
      * @param materialName
      *            our material name
      * @param mesh
@@ -127,8 +123,8 @@ public class ColladaMaterialUtils {
                         if (technique.getChild(type) == null) {
                             type = "constant";
                             if (technique.getChild(type) == null) {
-                                ColladaMaterialUtils.logger.warning("COMMON material has unusuable techinque. "
-                                        + child.getAttributeValue("url"));
+                                ColladaMaterialUtils.logger.warning(
+                                        "COMMON material has unusuable techinque. " + child.getAttributeValue("url"));
                                 return;
                             }
                         }
@@ -138,7 +134,6 @@ public class ColladaMaterialUtils {
                 if (mInfo != null) {
                     mInfo.setTechnique(type);
                 }
-                final MaterialState mState = new MaterialState();
 
                 // TODO: implement proper transparency handling
                 Texture diffuseTexture = null;
@@ -147,6 +142,8 @@ public class ColladaMaterialUtils {
                 boolean useTransparency = false;
                 String opaqueMode = "A_ONE";
 
+                final ColorSurface surface = new ColorSurface();
+                boolean usedSurface = false;
                 /*
                  * place holder for current property, we import material properties in fixed order (for texture order)
                  */
@@ -156,8 +153,9 @@ public class ColladaMaterialUtils {
                 if (property != null) {
                     final Element propertyValue = property.getChildren().get(0);
                     if ("color".equals(propertyValue.getName())) {
-                        final ColorRGBA color = _colladaDOMUtil.getColor(propertyValue.getText());
-                        mState.setDiffuse(MaterialFace.FrontAndBack, color);
+                        final ReadOnlyColorRGBA color = _colladaDOMUtil.getColor(propertyValue.getText());
+                        surface.setDiffuse(color);
+                        usedSurface = true;
                     } else if ("texture".equals(propertyValue.getName()) && _loadTextures) {
                         diffuseTexture = populateTextureState(mesh, propertyValue, effect, loadedTextures, mInfo,
                                 "diffuse");
@@ -168,8 +166,9 @@ public class ColladaMaterialUtils {
                 if (property != null) {
                     final Element propertyValue = property.getChildren().get(0);
                     if ("color".equals(propertyValue.getName())) {
-                        final ColorRGBA color = _colladaDOMUtil.getColor(propertyValue.getText());
-                        mState.setAmbient(MaterialFace.FrontAndBack, color);
+                        final ReadOnlyColorRGBA color = _colladaDOMUtil.getColor(propertyValue.getText());
+                        surface.setAmbient(color);
+                        usedSurface = true;
                     } else if ("texture".equals(propertyValue.getName()) && _loadTextures) {
                         populateTextureState(mesh, propertyValue, effect, loadedTextures, mInfo, "ambient");
                     }
@@ -207,7 +206,9 @@ public class ColladaMaterialUtils {
                 if (property != null) {
                     final Element propertyValue = property.getChildren().get(0);
                     if ("color".equals(propertyValue.getName())) {
-                        mState.setEmissive(MaterialFace.FrontAndBack, _colladaDOMUtil.getColor(propertyValue.getText()));
+                        final ReadOnlyColorRGBA color = _colladaDOMUtil.getColor(propertyValue.getText());
+                        surface.setEmissive(color);
+                        usedSurface = true;
                     } else if ("texture".equals(propertyValue.getName()) && _loadTextures) {
                         populateTextureState(mesh, propertyValue, effect, loadedTextures, mInfo, "emissive");
                     }
@@ -217,7 +218,9 @@ public class ColladaMaterialUtils {
                 if (property != null) {
                     final Element propertyValue = property.getChildren().get(0);
                     if ("color".equals(propertyValue.getName())) {
-                        mState.setSpecular(MaterialFace.FrontAndBack, _colladaDOMUtil.getColor(propertyValue.getText()));
+                        final ReadOnlyColorRGBA color = _colladaDOMUtil.getColor(propertyValue.getText());
+                        surface.setSpecular(color);
+                        usedSurface = true;
                     } else if ("texture".equals(propertyValue.getName()) && _loadTextures) {
                         populateTextureState(mesh, propertyValue, effect, loadedTextures, mInfo, "specular");
                     }
@@ -239,18 +242,19 @@ public class ColladaMaterialUtils {
                             logger.warning("Shininess must be between 0 and 128. Shininess " + oldShininess
                                     + " was clamped to " + shininess);
                         }
-                        mState.setShininess(MaterialFace.FrontAndBack, shininess);
+                        surface.setShininess(shininess);
+                        usedSurface = true;
                     } else if ("texture".equals(propertyValue.getName()) && _loadTextures) {
                         populateTextureState(mesh, propertyValue, effect, loadedTextures, mInfo, "shininess");
                     }
                 }
                 /* Reflectivity property */
-                float reflectivity = 1.0f;
                 property = blinnPhongLambert.getChild("reflectivity");
                 if (property != null) {
                     final Element propertyValue = property.getChildren().get(0);
                     if ("float".equals(propertyValue.getName())) {
-                        reflectivity = Float.parseFloat(propertyValue.getText().replace(",", "."));
+                        final float reflectivity = Float.parseFloat(propertyValue.getText().replace(",", "."));
+                        mesh.setProperty("reflectivity", reflectivity);
                     }
                 }
                 /* Reflective property. Texture only */
@@ -258,25 +262,29 @@ public class ColladaMaterialUtils {
                 if (property != null) {
                     final Element propertyValue = property.getChildren().get(0);
                     if ("texture".equals(propertyValue.getName()) && _loadTextures) {
-                        final Texture reflectiveTexture = populateTextureState(mesh, propertyValue, effect,
-                                loadedTextures, mInfo, "reflective");
+                        // final Texture reflectiveTexture =
+                        populateTextureState(mesh, propertyValue, effect, loadedTextures, mInfo, "reflective");
+                        //
+                        // reflectiveTexture.setEnvironmentalMapMode(Texture.EnvironmentalMapMode.SphereMap);
+                        // reflectiveTexture.setApply(ApplyMode.Combine);
+                        //
+                        // reflectiveTexture.setCombineFuncRGB(CombinerFunctionRGB.Interpolate);
+                        // // color 1
+                        // reflectiveTexture.setCombineSrc0RGB(CombinerSource.CurrentTexture);
+                        // reflectiveTexture.setCombineOp0RGB(CombinerOperandRGB.SourceColor);
+                        // // color 2
+                        // reflectiveTexture.setCombineSrc1RGB(CombinerSource.Previous);
+                        // reflectiveTexture.setCombineOp1RGB(CombinerOperandRGB.SourceColor);
+                        // // interpolate param will come from alpha of constant color
+                        // reflectiveTexture.setCombineSrc2RGB(CombinerSource.Constant);
+                        // reflectiveTexture.setCombineOp2RGB(CombinerOperandRGB.SourceAlpha);
 
-                        reflectiveTexture.setEnvironmentalMapMode(Texture.EnvironmentalMapMode.SphereMap);
-                        reflectiveTexture.setApply(ApplyMode.Combine);
-
-                        reflectiveTexture.setCombineFuncRGB(CombinerFunctionRGB.Interpolate);
-                        // color 1
-                        reflectiveTexture.setCombineSrc0RGB(CombinerSource.CurrentTexture);
-                        reflectiveTexture.setCombineOp0RGB(CombinerOperandRGB.SourceColor);
-                        // color 2
-                        reflectiveTexture.setCombineSrc1RGB(CombinerSource.Previous);
-                        reflectiveTexture.setCombineOp1RGB(CombinerOperandRGB.SourceColor);
-                        // interpolate param will come from alpha of constant color
-                        reflectiveTexture.setCombineSrc2RGB(CombinerSource.Constant);
-                        reflectiveTexture.setCombineOp2RGB(CombinerOperandRGB.SourceAlpha);
-
-                        reflectiveTexture.setConstantColor(new ColorRGBA(1, 1, 1, reflectivity));
+                        // reflectiveTexture.setConstantColor(new ColorRGBA(1, 1, 1, reflectivity));
                     }
+                }
+
+                if (usedSurface) {
+                    mesh.setProperty(ColorSurface.DefaultPropertyKey, surface);
                 }
 
                 /*
@@ -333,19 +341,17 @@ public class ColladaMaterialUtils {
                             mInfo.setTransparency(transparent.getAlpha() * transparency);
                         }
                     }
-                    mInfo.setMaterialState(mState);
                 }
-                mesh.setRenderState(mState);
             }
         } else {
-            ColladaMaterialUtils.logger.warning("material effect not found: "
-                    + mat.getChild("instance_material").getAttributeValue("url"));
+            ColladaMaterialUtils.logger.warning(
+                    "material effect not found: " + mat.getChild("instance_material").getAttributeValue("url"));
         }
     }
 
     /**
      * Function to searches an xml node for <texture> elements and adds them to the texture state of the mesh.
-     * 
+     *
      * @param mesh
      *            the Ardor3D Mesh to add the Texture to.
      * @param element
@@ -359,7 +365,6 @@ public class ColladaMaterialUtils {
         if ("texture".equals(element.getName()) && _loadTextures) {
             populateTextureState(mesh, element, effect, loadedTextures, info, null);
         }
-        @SuppressWarnings("unchecked")
         final List<Element> children = element.getChildren();
         if (children != null) {
             for (final Element child : children) {
@@ -371,7 +376,7 @@ public class ColladaMaterialUtils {
 
     /**
      * Convert a <texture> element to an Ardor3D representation and store in the given state.
-     * 
+     *
      * @param mesh
      *            the Ardor3D Mesh to add the Texture to.
      * @param daeTexture
@@ -518,24 +523,24 @@ public class ColladaMaterialUtils {
         }
         if (sampler.getChild("magfilter") != null) {
             final String magfilter = sampler.getChild("magfilter").getText();
-            texture.setMagnificationFilter(Enum.valueOf(SamplerTypes.MagFilterType.class, magfilter).getArdor3dFilter());
+            texture.setMagnificationFilter(
+                    Enum.valueOf(SamplerTypes.MagFilterType.class, magfilter).getArdor3dFilter());
         }
         if (sampler.getChild("wrap_s") != null) {
             final String wrapS = sampler.getChild("wrap_s").getText();
-            texture.setWrap(Texture.WrapAxis.S, Enum.valueOf(SamplerTypes.WrapModeType.class, wrapS)
-                    .getArdor3dWrapMode());
+            texture.setWrap(Texture.WrapAxis.S,
+                    Enum.valueOf(SamplerTypes.WrapModeType.class, wrapS).getArdor3dWrapMode());
         }
         if (sampler.getChild("wrap_t") != null) {
             final String wrapT = sampler.getChild("wrap_t").getText();
-            texture.setWrap(Texture.WrapAxis.T, Enum.valueOf(SamplerTypes.WrapModeType.class, wrapT)
-                    .getArdor3dWrapMode());
+            texture.setWrap(Texture.WrapAxis.T,
+                    Enum.valueOf(SamplerTypes.WrapModeType.class, wrapT).getArdor3dWrapMode());
         }
         if (sampler.getChild("border_color") != null) {
             texture.setBorderColor(_colladaDOMUtil.getColor(sampler.getChild("border_color").getText()));
         }
     }
 
-    @SuppressWarnings("unchecked")
     public void bindMaterials(final Element bindMaterial) {
         if (bindMaterial == null || bindMaterial.getChildren().isEmpty()) {
             return;
@@ -553,7 +558,6 @@ public class ColladaMaterialUtils {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public void unbindMaterials(final Element bindMaterial) {
         if (bindMaterial == null || bindMaterial.getChildren().isEmpty()) {
             return;
@@ -576,7 +580,8 @@ public class ColladaMaterialUtils {
             final ResourceSource source = _importer.getTextureLocator().locateResource(path);
             texture = TextureManager.load(source, minFilter,
                     _compressTextures ? TextureStoreFormat.GuessCompressedFormat
-                            : TextureStoreFormat.GuessNoCompressedFormat, true);
+                            : TextureStoreFormat.GuessNoCompressedFormat,
+                    true);
         }
         _dataCache.addTexture(path, texture);
 

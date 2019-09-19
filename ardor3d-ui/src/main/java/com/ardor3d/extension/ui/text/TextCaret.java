@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.text;
@@ -35,6 +35,8 @@ public class TextCaret {
      * Construct a new TextCaret
      */
     public TextCaret() {
+        _strip.setRenderMaterial("ui/untextured/default_color.yaml");
+
         final MeshData md = _strip.getMeshData();
         md.setVertexBuffer(BufferUtils.createVector3Buffer(4));
         md.setIndices(BufferUtils.createIndexBufferData(new int[] { 0, 1, 3, 2 }, 3));

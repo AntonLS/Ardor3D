@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.renderer;
@@ -16,7 +16,7 @@ import com.ardor3d.example.ExampleBase;
 import com.ardor3d.example.Purpose;
 import com.ardor3d.framework.Canvas;
 import com.ardor3d.framework.CanvasRenderer;
-import com.ardor3d.input.Key;
+import com.ardor3d.input.keyboard.Key;
 import com.ardor3d.input.logical.InputTrigger;
 import com.ardor3d.input.logical.KeyPressedCondition;
 import com.ardor3d.input.logical.TriggerAction;
@@ -29,9 +29,6 @@ import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.RenderContext;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.queue.RenderBucketType;
-import com.ardor3d.renderer.state.MaterialState;
-import com.ardor3d.renderer.state.MaterialState.ColorMaterial;
 import com.ardor3d.scenegraph.hint.LightCombineMode;
 import com.ardor3d.scenegraph.shape.Box;
 import com.ardor3d.scenegraph.shape.Quad;
@@ -44,8 +41,8 @@ import com.ardor3d.util.ReadOnlyTimer;
  * surface.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.renderer.ViewportExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/renderer_ViewportExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/renderer_ViewportExample.jpg", //
+        maxHeapMemory = 64)
 public class ViewportExample extends ExampleBase {
 
     private Box box2;
@@ -83,28 +80,22 @@ public class ViewportExample extends ExampleBase {
             }
         });
 
-        final MaterialState ms = new MaterialState();
-        ms.setColorMaterial(ColorMaterial.AmbientAndDiffuse);
-
         // A box to check aspect ratio of 3D objects
         box1 = new Box("test box 1", new Vector3(-1, -1, -1), new Vector3(1, 1, 1));
         box1.setTranslation(0, 5, 0);
         box1.setRotation(new Quaternion().fromEulerAngles(MathUtils.DEG_TO_RAD * 45, MathUtils.DEG_TO_RAD * 60,
                 MathUtils.DEG_TO_RAD * 30));
         box1.setSolidColor(ColorRGBA.GREEN);
-        box1.setRenderState(ms);
         box1.updateModelBound();
 
         // Another one, not rotated
         box2 = new Box("test box 2", new Vector3(-1, -1, -1), new Vector3(1, 1, 1));
         box2.setTranslation(0, -5, 0);
         box2.setSolidColor(ColorRGBA.RED);
-        box2.setRenderState(ms);
         box2.updateModelBound();
 
         // A text to check aspect ratio of 2D objects
         quad = new Quad("test quad", 100, 20);
-        quad.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
         quad.getSceneHints().setLightCombineMode(LightCombineMode.Off);
         // if we don't explicitly update model bounds, quad will keep its default infinite bounding sphere, so it will
         // always display (and it will prevent rootnode from culling)
@@ -112,7 +103,9 @@ public class ViewportExample extends ExampleBase {
         // Attach children
         _root.attachChild(box1);
         _root.attachChild(box2);
-        _root.attachChild(quad);
+        _orthoRoot.attachChild(quad);
+
+        _root.setRenderMaterial("unlit/untextured/vertex_color.yaml");
     }
 
     @Override
@@ -137,7 +130,7 @@ public class ViewportExample extends ExampleBase {
 
         final Camera camera = Camera.getCurrentCamera();
         camera.setViewPort(vpLeft, vpRight, vpBottom, vpTop);
-        camera.update();
+        _orthoCam.setViewPort(vpLeft, vpRight, vpBottom, vpTop);
 
         fullViewport = full;
     }

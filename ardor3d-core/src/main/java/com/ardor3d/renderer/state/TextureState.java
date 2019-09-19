@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.renderer.state;
@@ -38,7 +38,7 @@ import com.ardor3d.util.resource.URLResourceSource;
  * TextureState can maintain at one time is equal to the number of texture units available on the GPU. It is not within
  * the scope of this class to generate the texture, and is recommended that <code>TextureManager</code> be used to
  * create the Texture objects.
- * 
+ *
  * @see com.ardor3d.util.TextureManager
  */
 public class TextureState extends RenderState {
@@ -49,26 +49,8 @@ public class TextureState extends RenderState {
     protected static Texture _defaultTexture = null;
     protected static boolean defaultTextureLoaded = false;
 
-    public enum CorrectionType {
-        /**
-         * Correction modifier makes no color corrections, and is the fastest.
-         */
-        Affine,
-
-        /**
-         * Correction modifier makes color corrections based on perspective and is slower than CM_AFFINE. (Default)
-         */
-        Perspective;
-    }
-
     /** The texture(s). */
     protected List<Texture> _texture = new ArrayList<Texture>(1);
-
-    /**
-     * Perspective correction to use for the object rendered with this texture state. Default is
-     * CorrectionType.Perspective.
-     */
-    private CorrectionType _correctionType = CorrectionType.Perspective;
 
     public transient TextureKey[] _keyCache = new TextureKey[MAX_TEXTURES];
 
@@ -99,7 +81,7 @@ public class TextureState extends RenderState {
 
     /**
      * <code>setTexture</code> sets a single texture to the first texture unit.
-     * 
+     *
      * @param texture
      *            the texture to set.
      */
@@ -114,7 +96,7 @@ public class TextureState extends RenderState {
 
     /**
      * <code>getTexture</code> gets the texture that is assigned to the first texture unit.
-     * 
+     *
      * @return the texture in the first texture unit.
      */
     public Texture getTexture() {
@@ -129,7 +111,7 @@ public class TextureState extends RenderState {
      * <code>setTexture</code> sets the texture object to be used by the state. The texture unit that this texture uses
      * is set, if the unit is not valid, i.e. less than zero or greater than the number of texture units supported by
      * the graphics card, it is ignored.
-     * 
+     *
      * @param texture
      *            the texture to be used by the state.
      * @param textureUnit
@@ -147,7 +129,7 @@ public class TextureState extends RenderState {
 
     /**
      * <code>getTexture</code> retrieves the texture being used by the state in a particular texture unit.
-     * 
+     *
      * @param textureUnit
      *            the texture unit to retrieve the texture from.
      * @return the texture being used by the state. If the texture unit is invalid, null is returned.
@@ -198,33 +180,8 @@ public class TextureState extends RenderState {
     }
 
     /**
-     * <code>setCorrectionType</code> sets the image correction type for this texture state.
-     * 
-     * @param type
-     *            the correction type for this texture.
-     * @throws IllegalArgumentException
-     *             if type is null
-     */
-    public void setCorrectionType(final CorrectionType type) {
-        if (type == null) {
-            throw new IllegalArgumentException("type can not be null.");
-        }
-        _correctionType = type;
-        setNeedsRefresh(true);
-    }
-
-    /**
-     * <code>getCorrectionType</code> returns the correction mode for the texture state.
-     * 
-     * @return the correction type for the texture state.
-     */
-    public CorrectionType getCorrectionType() {
-        return _correctionType;
-    }
-
-    /**
      * Returns the number of textures this texture manager is maintaining.
-     * 
+     *
      * @return the number of textures.
      */
     public int getNumberOfSetTextures() {
@@ -239,7 +196,7 @@ public class TextureState extends RenderState {
 
     /**
      * Returns the max index in this TextureState that contains a non-null Texture.
-     * 
+     *
      * @return the max index, or -1 if no textures are contained by this state.
      */
     public int getMaxTextureIndexUsed() {
@@ -255,7 +212,7 @@ public class TextureState extends RenderState {
      * or equal to the highest texture unit currently in use. This value can be retrieved with
      * <code>getNumberOfSetTextures</code>. A higher value might result in unexpected behavior such as an exception
      * being thrown.
-     * 
+     *
      * @param textureUnit
      *            The texture unit from which to retrieve the TextureKey.
      * @return the TextureKey, or null if there is none.
@@ -272,7 +229,6 @@ public class TextureState extends RenderState {
     public void write(final OutputCapsule capsule) throws IOException {
         super.write(capsule);
         capsule.writeSavableList(_texture, "texture", new ArrayList<Texture>(1));
-        capsule.write(_correctionType, "correctionType", CorrectionType.Perspective);
 
     }
 
@@ -280,7 +236,6 @@ public class TextureState extends RenderState {
     public void read(final InputCapsule capsule) throws IOException {
         super.read(capsule);
         _texture = capsule.readSavableList("texture", new ArrayList<Texture>(1));
-        _correctionType = capsule.readEnum("correctionType", CorrectionType.class, CorrectionType.Perspective);
     }
 
     public static Image getDefaultTextureImage() {
@@ -368,7 +323,7 @@ public class TextureState extends RenderState {
                     }
                 }
                 break;
-            case Off:
+            default:
                 break;
         }
         newTState.setEnabled(foundEnabled);

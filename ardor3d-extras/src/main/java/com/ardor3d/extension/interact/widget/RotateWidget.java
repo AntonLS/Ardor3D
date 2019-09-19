@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.interact.widget;
@@ -15,9 +15,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.ardor3d.extension.interact.InteractManager;
 import com.ardor3d.framework.Canvas;
 import com.ardor3d.image.Texture2D;
-import com.ardor3d.input.ButtonState;
-import com.ardor3d.input.MouseState;
 import com.ardor3d.input.logical.TwoInputStates;
+import com.ardor3d.input.mouse.MouseCursor;
+import com.ardor3d.input.mouse.MouseState;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Matrix3;
@@ -33,13 +33,15 @@ import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.Renderer;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
+import com.ardor3d.renderer.state.BlendState.SourceFunction;
+import com.ardor3d.renderer.state.RenderState.StateType;
 import com.ardor3d.renderer.state.ZBufferState;
 import com.ardor3d.renderer.state.ZBufferState.TestFunction;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
+import com.ardor3d.util.MaterialUtil;
 
 public class RotateWidget extends AbstractInteractWidget {
-    public static double MIN_SCALE = 0.000001;
 
     protected Matrix3 _calcMat3 = new Matrix3();
     protected Matrix3 _rotateStore = new Matrix3();
@@ -50,12 +52,11 @@ public class RotateWidget extends AbstractInteractWidget {
     protected InteractRing _yRing = null;
     protected InteractRing _zRing = null;
 
-    public RotateWidget() {
-        _handle = new Node("rotationHandle");
+    public static MouseCursor DEFAULT_CURSOR = null;
 
-        final BlendState blend = new BlendState();
-        blend.setBlendEnabled(true);
-        _handle.setRenderState(blend);
+    public RotateWidget(final IFilterList filterList) {
+        super(filterList);
+        _handle = new Node("rotationHandle");
 
         final ZBufferState zstate = new ZBufferState();
         zstate.setFunction(TestFunction.LessThanOrEqualTo);
@@ -63,11 +64,15 @@ public class RotateWidget extends AbstractInteractWidget {
 
         _handle.getSceneHints().setRenderBucketType(RenderBucketType.Transparent);
         _handle.updateGeometricState(0);
+
+        if (RotateWidget.DEFAULT_CURSOR != null) {
+            setMouseOverCallback(new SetCursorCallback(RotateWidget.DEFAULT_CURSOR));
+        }
     }
 
     /**
      * Call this after creating the rings you want to use.
-     * 
+     *
      * @param texture
      * @return
      */
@@ -81,6 +86,30 @@ public class RotateWidget extends AbstractInteractWidget {
         if (_zRing != null) {
             _zRing.setTexture(texture);
         }
+    }
+
+    @Override
+    protected void mouseEntered(final Canvas source, final MouseState current, final InteractManager manager) {
+        super.mouseEntered(source, current, manager);
+        if (_lastMouseOverSpatial != null) {
+            updateBlendStates(_lastMouseOverSpatial);
+        }
+    }
+
+    @Override
+    protected void mouseDeparted(final Canvas source, final MouseState current, final InteractManager manager) {
+        super.mouseDeparted(source, current, manager);
+        updateBlendStates(null);
+    }
+
+    protected void updateBlendStates(final Spatial highlight) {
+        _handle.acceptVisitor((final Spatial spatial) -> {
+            final BlendState bs = (BlendState) spatial.getLocalRenderState(StateType.Blend);
+            if (bs != null) {
+                bs.setSourceFunction(spatial == highlight ? SourceFunction.One : SourceFunction.SourceAlpha);
+            }
+        }, true);
+        _handle.updateGeometricState(0);
     }
 
     public RotateWidget withXAxis() {
@@ -101,6 +130,12 @@ public class RotateWidget extends AbstractInteractWidget {
         _xRing.getMeshData().rotatePoints(rotate);
         _xRing.getMeshData().rotateNormals(rotate);
         _handle.attachChild(_xRing);
+
+        final BlendState blend = new BlendState();
+        blend.setBlendEnabled(true);
+        _xRing.setRenderState(blend);
+        MaterialUtil.autoMaterials(_xRing);
+
         return this;
     }
 
@@ -122,6 +157,12 @@ public class RotateWidget extends AbstractInteractWidget {
         _yRing.getMeshData().rotatePoints(rotate);
         _yRing.getMeshData().rotateNormals(rotate);
         _handle.attachChild(_yRing);
+
+        final BlendState blend = new BlendState();
+        blend.setBlendEnabled(true);
+        _yRing.setRenderState(blend);
+        MaterialUtil.autoMaterials(_yRing);
+
         return this;
     }
 
@@ -140,20 +181,13 @@ public class RotateWidget extends AbstractInteractWidget {
         _zRing = new InteractRing("zRotRing", 4, 32, scale, width);
         _zRing.setDefaultColor(color);
         _handle.attachChild(_zRing);
-        return this;
-    }
 
-    @Override
-    public void targetChanged(final InteractManager manager) {
-        if (_dragging) {
-            endDrag(manager);
-        }
-        final Spatial target = manager.getSpatialTarget();
-        if (target != null) {
-            _handle.setScale(Math.max(RotateWidget.MIN_SCALE, target.getWorldBound().getRadius()
-                    + target.getWorldTranslation().subtract(target.getWorldBound().getCenter(), _calcVec3A).length()));
-        }
-        targetDataUpdated(manager);
+        final BlendState blend = new BlendState();
+        blend.setBlendEnabled(true);
+        _zRing.setRenderState(blend);
+        MaterialUtil.autoMaterials(_zRing);
+
+        return this;
     }
 
     protected void setRingRotations(final ReadOnlyMatrix3 rot) {
@@ -172,10 +206,8 @@ public class RotateWidget extends AbstractInteractWidget {
     public void targetDataUpdated(final InteractManager manager) {
         final Spatial target = manager.getSpatialTarget();
         if (target == null) {
-            _handle.setScale(1.0);
             setRingRotations(Matrix3.IDENTITY);
         } else {
-            // update scale of widget using bounding radius
             target.updateGeometricState(0);
 
             // update ring rotations from target
@@ -188,6 +220,8 @@ public class RotateWidget extends AbstractInteractWidget {
                 }
             }
         }
+
+        _handle.setScale(calculateHandleScale(manager));
     }
 
     @Override
@@ -206,14 +240,13 @@ public class RotateWidget extends AbstractInteractWidget {
     @Override
     public void processInput(final Canvas source, final TwoInputStates inputStates, final AtomicBoolean inputConsumed,
             final InteractManager manager) {
-        // Make sure we have something to modify
-        if (manager.getSpatialTarget() == null) {
-            return;
-        }
 
-        // Make sure we are dragging.
+        final Camera camera = source.getCanvasRenderer().getCamera();
         final MouseState current = inputStates.getCurrent().getMouseState();
         final MouseState previous = inputStates.getPrevious().getMouseState();
+
+        // first process mouse over state
+        checkMouseOver(source, current, manager);
 
         if (current.getButtonsReleasedSince(previous).contains(_dragButton)) {
             _rotateStore.setIdentity();
@@ -222,44 +255,17 @@ public class RotateWidget extends AbstractInteractWidget {
             }
         }
 
-        if (current.getButtonState(_dragButton) != ButtonState.DOWN) {
-            if (_dragging) {
-                endDrag(manager);
-            }
-            return;
-        }
-        // if we're already dragging, make sure we only act on drags that started with a positive pick.
-        else if (!current.getButtonsPressedSince(previous).contains(_dragButton) && !_dragging) {
-            return;
-        }
-
-        final Camera camera = source.getCanvasRenderer().getCamera();
-        final Vector2 oldMouse = new Vector2(previous.getX(), previous.getY());
-        // Make sure we are dragging over the handle
-        if (!_dragging) {
-            findPick(oldMouse, camera);
-            final Vector3 lastPick = getLastPick();
-            if (lastPick == null) {
-                return;
-            } else {
-                beginDrag(manager);
-            }
-        }
-
-        // we've established that our mouse is being held down, and started over our arrow. So consume.
-        inputConsumed.set(true);
-
-        // check if we've moved at all
-        if (current == previous || current.getDx() == 0 && current.getDy() == 0) {
+        // Now check drag status
+        if (!checkShouldDrag(camera, current, previous, inputConsumed, manager)) {
             return;
         }
 
         // act on drag
-        final Spatial picked = (Spatial) _results.getPickData(0).getTarget();
-        if (picked instanceof InteractRing) {
-            final InteractRing ring = (InteractRing) picked;
-            _lastRing = ring;
-            final ReadOnlyQuaternion rot = getNewAxisRotation(ring, oldMouse, current, camera, manager);
+        if (_lastDragSpatial instanceof InteractRing) {
+            _lastRing = (InteractRing) _lastDragSpatial;
+
+            final Vector2 oldMouse = new Vector2(previous.getX(), previous.getY());
+            final ReadOnlyQuaternion rot = getNewAxisRotation(_lastRing, oldMouse, current, camera, manager);
             final Transform transform = manager.getSpatialState().getTransform();
             rot.toRotationMatrix(_calcMat3).multiply(transform.getMatrix(), _calcMat3);
             transform.setRotation(_calcMat3);
@@ -311,8 +317,8 @@ public class RotateWidget extends AbstractInteractWidget {
 
         // apply to our interact matrix if used
         if (_interactMatrix == InteractMatrix.World) {
-            _rotateStore.multiplyLocal(new Quaternion().fromVectorToVector(_calcVec3A, _calcVec3B).toRotationMatrix(
-                    _calcMat3));
+            _rotateStore.multiplyLocal(
+                    new Quaternion().fromVectorToVector(_calcVec3A, _calcVec3B).toRotationMatrix(_calcMat3));
         }
 
         // convert to target coord space

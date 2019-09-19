@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
@@ -44,7 +44,7 @@ public class UIProgressBar extends UIPanel {
 
     /**
      * Construct a new progress bar with the given attributes.
-     * 
+     *
      * @param labelText
      *            text to show next to the progress bar
      * @param horizontal
@@ -76,10 +76,7 @@ public class UIProgressBar extends UIPanel {
 
         applySkin();
 
-        updateMinimumSizeFromContents();
-        compact();
-
-        layout();
+        pack();
     }
 
     @Override
@@ -99,7 +96,7 @@ public class UIProgressBar extends UIPanel {
 
     /**
      * Takes affect on next call to layout()
-     * 
+     *
      * @param horizontal
      *            true for horizontal bar, false for vertical.
      */
@@ -113,7 +110,7 @@ public class UIProgressBar extends UIPanel {
 
     /**
      * Triggers layout if value is not same as current value.
-     * 
+     *
      * @param value
      */
     public void setPercentFilled(final double value) {

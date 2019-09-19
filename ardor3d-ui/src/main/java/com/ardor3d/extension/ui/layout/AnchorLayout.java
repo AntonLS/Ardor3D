@@ -1,16 +1,17 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.layout;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -20,7 +21,6 @@ import com.ardor3d.extension.ui.util.Alignment;
 import com.ardor3d.math.Rectangle2;
 import com.ardor3d.math.Vector2;
 import com.ardor3d.scenegraph.Spatial;
-import com.google.common.collect.Maps;
 
 /**
  * <p>
@@ -32,26 +32,26 @@ import com.google.common.collect.Maps;
  * <p>
  * As an example, the following would setup labelA in the top left corner of the container, 5 pixels from the top and 5
  * pixels from the bottom. Directly below that (5 pixels from the bottom of labelA) is labelB, left aligned to labelA:
- * 
+ *
  * <pre>
  * UIContainer container;
  * UILabel labelA, labelB
- * 
+ *
  * ...
- * 
+ *
  * container.setLayout(new AnchorLayout());
  * labelA.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, container, Alignment.TOP_LEFT, 5, -5));
  * labelB.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, labelA, Alignment.BOTTOM_LEFT, 0, -5));
  * </pre>
- * 
+ *
  * </p>
- * 
+ *
  * @see AnchorLayoutData
  */
 public class AnchorLayout extends UILayout {
 
     /** map used to track anchor relationship during layout. */
-    private final Map<UIComponent, AnchorRecord> _records = Maps.newHashMap();
+    private final Map<UIComponent, AnchorRecord> _records = new HashMap<>();
 
     // Various min/max values set and used during a layout operation.
     private int _maxX = 0;
@@ -116,7 +116,7 @@ public class AnchorLayout extends UILayout {
     @Override
     public void updateMinimumSizeFromContents(final UIContainer container) {
         layoutContents(container);
-        container.setMinimumContentSize(_maxX - _minX, _maxY - _minY);
+        container.setLayoutMinimumContentSize(_maxX - _minX, _maxY - _minY);
     }
 
     private void visit(final UIComponent toVisit) {

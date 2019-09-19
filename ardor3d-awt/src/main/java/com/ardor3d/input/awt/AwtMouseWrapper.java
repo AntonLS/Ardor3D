@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.input.awt;
@@ -24,16 +24,14 @@ import java.util.EnumSet;
 import java.util.LinkedList;
 
 import com.ardor3d.annotation.GuardedBy;
-import com.ardor3d.input.ButtonState;
-import com.ardor3d.input.GrabbedState;
-import com.ardor3d.input.MouseButton;
-import com.ardor3d.input.MouseManager;
-import com.ardor3d.input.MouseState;
-import com.ardor3d.input.MouseWrapper;
+import com.ardor3d.input.mouse.ButtonState;
+import com.ardor3d.input.mouse.GrabbedState;
+import com.ardor3d.input.mouse.MouseButton;
+import com.ardor3d.input.mouse.MouseManager;
+import com.ardor3d.input.mouse.MouseState;
+import com.ardor3d.input.mouse.MouseWrapper;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.EnumMultiset;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.PeekingIterator;
 
@@ -42,7 +40,7 @@ import com.google.common.collect.PeekingIterator;
  */
 public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelListener, MouseMotionListener {
     @GuardedBy("this")
-    protected final LinkedList<MouseState> _upcomingEvents = Lists.newLinkedList();
+    protected final LinkedList<MouseState> _upcomingEvents = new LinkedList<>();
 
     @GuardedBy("this")
     protected AwtMouseIterator _currentIterator = null;
@@ -51,13 +49,14 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
     protected MouseState _lastState = null;
 
     protected boolean _consumeEvents = false;
+    protected boolean _ignoreInput;
 
     protected final Component _component;
     protected final Frame _frame;
     protected final MouseManager _manager;
 
     protected final Multiset<MouseButton> _clicks = EnumMultiset.create(MouseButton.class);
-    protected final EnumMap<MouseButton, Long> _lastClickTime = Maps.newEnumMap(MouseButton.class);
+    protected final EnumMap<MouseButton, Long> _lastClickTime = new EnumMap<>(MouseButton.class);
     protected final EnumSet<MouseButton> _clickArmed = EnumSet.noneOf(MouseButton.class);
 
     protected int _ignoreX = Integer.MAX_VALUE;
@@ -82,7 +81,7 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
         _component.addMouseWheelListener(this);
     }
 
-    public synchronized PeekingIterator<MouseState> getEvents() {
+    public synchronized PeekingIterator<MouseState> getMouseEvents() {
         expireClickEvents();
 
         if (_currentIterator == null || !_currentIterator.hasNext()) {
@@ -103,6 +102,10 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
     }
 
     public synchronized void mousePressed(final MouseEvent e) {
+        if (_ignoreInput) {
+            return;
+        }
+
         final MouseButton b = getButtonForEvent(e);
         if (_clickArmed.contains(b)) {
             _clicks.setCount(b, 0);
@@ -123,6 +126,10 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
     }
 
     public synchronized void mouseReleased(final MouseEvent e) {
+        if (_ignoreInput) {
+            return;
+        }
+
         initState(e);
         if (_consumeEvents) {
             e.consume();
@@ -133,7 +140,8 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
         setStateForButton(e, buttons, ButtonState.UP);
 
         final MouseButton b = getButtonForEvent(e);
-        if (_clickArmed.contains(b) && (System.currentTimeMillis() - _lastClickTime.get(b) <= MouseState.CLICK_TIME_MS)) {
+        if (_clickArmed.contains(b)
+                && (System.currentTimeMillis() - _lastClickTime.get(b) <= MouseState.CLICK_TIME_MS)) {
             _clicks.add(b); // increment count of clicks for button b.
             // XXX: Note the double event add... this prevents sticky click counts, but is it the best way?
             addNewState(e, buttons, EnumMultiset.create(_clicks));
@@ -151,6 +159,10 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
     }
 
     public synchronized void mouseMoved(final MouseEvent e) {
+        if (_ignoreInput) {
+            return;
+        }
+
         _clickArmed.clear();
         _clicks.clear();
 
@@ -207,6 +219,10 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
     }
 
     public void mouseWheelMoved(final MouseWheelEvent e) {
+        if (_ignoreInput) {
+            return;
+        }
+
         initState(e);
 
         addNewState(e, _lastState.getButtonStates(), null);
@@ -224,8 +240,9 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
     private void addNewState(final MouseEvent mouseEvent, final EnumMap<MouseButton, ButtonState> enumMap,
             final Multiset<MouseButton> clicks) {
         final MouseState newState = new MouseState(mouseEvent.getX(), getArdor3DY(mouseEvent), getDX(mouseEvent),
-                getDY(mouseEvent), (mouseEvent instanceof MouseWheelEvent ? ((MouseWheelEvent) mouseEvent)
-                        .getWheelRotation() : 0), enumMap, clicks);
+                getDY(mouseEvent),
+                (mouseEvent instanceof MouseWheelEvent ? ((MouseWheelEvent) mouseEvent).getWheelRotation() : 0),
+                enumMap, clicks);
 
         synchronized (AwtMouseWrapper.this) {
             _upcomingEvents.add(newState);
@@ -322,5 +339,15 @@ public class AwtMouseWrapper implements MouseWrapper, MouseListener, MouseWheelL
 
     public void setConsumeEvents(final boolean consumeEvents) {
         _consumeEvents = consumeEvents;
+    }
+
+    @Override
+    public void setIgnoreInput(final boolean ignore) {
+        _ignoreInput = ignore;
+    }
+
+    @Override
+    public boolean isIgnoreInput() {
+        return _ignoreInput;
     }
 }

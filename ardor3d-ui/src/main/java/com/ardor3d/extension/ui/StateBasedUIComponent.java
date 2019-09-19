@@ -1,18 +1,21 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
 
+import com.ardor3d.extension.ui.backdrop.UIBackdrop;
+import com.ardor3d.extension.ui.border.UIBorder;
+import com.ardor3d.extension.ui.util.Insets;
 import com.ardor3d.input.InputState;
-import com.ardor3d.input.Key;
-import com.ardor3d.input.MouseButton;
+import com.ardor3d.input.keyboard.Key;
+import com.ardor3d.input.mouse.MouseButton;
 import com.ardor3d.math.type.ReadOnlyColorRGBA;
 import com.google.common.collect.ImmutableSet;
 
@@ -60,7 +63,7 @@ public abstract class StateBasedUIComponent extends UIComponent {
 
     /**
      * Set our current active state.
-     * 
+     *
      * @param nextState
      *            the state to set as active for this component. If null, this is a no-op.
      */
@@ -91,7 +94,7 @@ public abstract class StateBasedUIComponent extends UIComponent {
 
     /**
      * Sets the text color on this component and (optionally) all contained states.
-     * 
+     *
      * @param color
      *            the new foreground color
      * @param allStates
@@ -102,6 +105,42 @@ public abstract class StateBasedUIComponent extends UIComponent {
         if (allStates) {
             for (final UIState state : getStates()) {
                 state.setForegroundColor(color);
+            }
+        }
+    }
+
+    public void setMargin(final Insets margin, final boolean allStates) {
+        super.setMargin(margin);
+        if (allStates) {
+            for (final UIState state : getStates()) {
+                state.setMargin(margin);
+            }
+        }
+    }
+
+    public void setPadding(final Insets padding, final boolean allStates) {
+        super.setPadding(padding);
+        if (allStates) {
+            for (final UIState state : getStates()) {
+                state.setPadding(padding);
+            }
+        }
+    }
+
+    public void setBorder(final UIBorder border, final boolean allStates) {
+        super.setBorder(border);
+        if (allStates) {
+            for (final UIState state : getStates()) {
+                state.setBorder(border);
+            }
+        }
+    }
+
+    public void setBackdrop(final UIBackdrop backDrop, final boolean allStates) {
+        super.setBackdrop(backDrop);
+        if (allStates) {
+            for (final UIState state : getStates()) {
+                state.setBackdrop(backDrop);
             }
         }
     }
@@ -123,6 +162,11 @@ public abstract class StateBasedUIComponent extends UIComponent {
     @Override
     public boolean mouseMoved(final int mouseX, final int mouseY, final InputState state) {
         return getCurrentState().mouseMoved(mouseX, mouseY, state) || super.mouseMoved(mouseX, mouseY, state);
+    }
+
+    @Override
+    public boolean mouseClicked(final MouseButton button, final InputState state) {
+        return getCurrentState().mouseClicked(button, state) || super.mouseClicked(button, state);
     }
 
     @Override
@@ -153,6 +197,11 @@ public abstract class StateBasedUIComponent extends UIComponent {
     @Override
     public boolean keyHeld(final Key key, final InputState state) {
         return getCurrentState().keyHeld(key, state) || super.keyHeld(key, state);
+    }
+
+    @Override
+    public boolean characterReceived(final char value, final InputState state) {
+        return getCurrentState().characterReceived(value, state) || super.characterReceived(value, state);
     }
 
     @Override

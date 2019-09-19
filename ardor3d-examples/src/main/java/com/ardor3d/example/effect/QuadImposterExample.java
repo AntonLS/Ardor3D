@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.effect;
@@ -15,17 +15,14 @@ import com.ardor3d.example.ExampleBase;
 import com.ardor3d.example.Purpose;
 import com.ardor3d.framework.Canvas;
 import com.ardor3d.image.Texture;
-import com.ardor3d.input.Key;
+import com.ardor3d.input.keyboard.Key;
 import com.ardor3d.input.logical.InputTrigger;
 import com.ardor3d.input.logical.KeyPressedCondition;
 import com.ardor3d.input.logical.TriggerAction;
 import com.ardor3d.input.logical.TwoInputStates;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Vector3;
-import com.ardor3d.renderer.queue.RenderBucketType;
-import com.ardor3d.renderer.state.MaterialState;
 import com.ardor3d.renderer.state.TextureState;
-import com.ardor3d.renderer.state.MaterialState.ColorMaterial;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.extension.QuadImposterNode;
 import com.ardor3d.scenegraph.hint.LightCombineMode;
@@ -40,8 +37,8 @@ import com.ardor3d.util.TextureManager;
  * A demonstration of the QuadImposterNode class; which sets the texture level of detail for a Node.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.effect.QuadImposterExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/effect_QuadImposterExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/effect_QuadImposterExample.jpg", //
+        maxHeapMemory = 64)
 public class QuadImposterExample extends ExampleBase {
     private boolean showImposter = true;
 
@@ -55,19 +52,19 @@ public class QuadImposterExample extends ExampleBase {
 
         _canvas.getCanvasRenderer().getCamera().setLocation(new Vector3(0, 60, 80));
         _canvas.getCanvasRenderer().getCamera().lookAt(new Vector3(), Vector3.UNIT_Y);
+        _root.setRenderMaterial("unlit/textured/basic.yaml");
 
         final BasicText keyText = BasicText.createDefaultTextLabel("Text", "[SPACE] Switch imposters off");
-        keyText.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
         keyText.getSceneHints().setLightCombineMode(LightCombineMode.Off);
         keyText.setTranslation(new Vector3(0, 20, 0));
-        _root.attachChild(keyText);
+        _orthoRoot.attachChild(keyText);
 
         final Box box = new Box("Box", new Vector3(), 150, 1, 150);
         box.setModelBound(new BoundingBox());
         box.setTranslation(new Vector3(0, -10, 0));
         _root.attachChild(box);
 
-        final QuadImposterNode imposter0 = new QuadImposterNode("Imposter1", 256, 256, _settings.getDepthBits(),
+        final QuadImposterNode imposter0 = new QuadImposterNode("Imposter1", 512, 512, _settings.getDepthBits(),
                 _settings.getSamples(), _timer);
         imposter0.setRedrawRate(0.0); // No timed update
         imposter0.setCameraAngleThreshold(1.0 * MathUtils.DEG_TO_RAD);
@@ -78,7 +75,7 @@ public class QuadImposterExample extends ExampleBase {
         scene1.setTranslation(0, 0, 0);
         imposter0.attachChild(scene1);
 
-        final QuadImposterNode imposter1 = new QuadImposterNode("Imposter1", 128, 128, _settings.getDepthBits(),
+        final QuadImposterNode imposter1 = new QuadImposterNode("Imposter1", 256, 256, _settings.getDepthBits(),
                 _settings.getSamples(), _timer);
         imposter1.setRedrawRate(0.0); // No timed update
         imposter1.setCameraAngleThreshold(1.0 * MathUtils.DEG_TO_RAD);
@@ -89,7 +86,7 @@ public class QuadImposterExample extends ExampleBase {
         scene2.setTranslation(-15, 0, -25);
         imposter1.attachChild(scene2);
 
-        final QuadImposterNode imposter2 = new QuadImposterNode("Imposter2", 64, 64, _settings.getDepthBits(),
+        final QuadImposterNode imposter2 = new QuadImposterNode("Imposter2", 128, 128, _settings.getDepthBits(),
                 _settings.getSamples(), _timer);
         imposter2.setRedrawRate(0.0); // No timed update
         imposter2.setCameraAngleThreshold(1.0 * MathUtils.DEG_TO_RAD);
@@ -131,10 +128,6 @@ public class QuadImposterExample extends ExampleBase {
         final TextureState ts = new TextureState();
         ts.setEnabled(true);
         ts.setTexture(TextureManager.load("images/ardor3d_white_256.jpg", Texture.MinificationFilter.Trilinear, true));
-
-        final MaterialState ms = new MaterialState();
-        ms.setColorMaterial(ColorMaterial.Diffuse);
-        _root.setRenderState(ms);
 
         _root.setRenderState(ts);
 

@@ -1,20 +1,25 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.ui.text;
 
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Logger;
 
 import com.ardor3d.annotation.SavableFactory;
+import com.ardor3d.framework.IDpiScaleProvider;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Matrix3;
+import com.ardor3d.math.TransformException;
 import com.ardor3d.math.Vector2;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.math.type.ReadOnlyColorRGBA;
@@ -23,8 +28,9 @@ import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.Camera.ProjectionMode;
 import com.ardor3d.renderer.IndexMode;
 import com.ardor3d.renderer.Renderer;
+import com.ardor3d.scenegraph.AbstractBufferData.VBOAccessMode;
 import com.ardor3d.scenegraph.Mesh;
-import com.ardor3d.scenegraph.hint.CullHint;
+import com.ardor3d.scenegraph.MeshData;
 import com.ardor3d.scenegraph.hint.LightCombineMode;
 import com.ardor3d.scenegraph.hint.TextureCombineMode;
 import com.ardor3d.util.geom.BufferUtils;
@@ -34,6 +40,9 @@ import com.ardor3d.util.geom.BufferUtils;
  */
 @SavableFactory(factoryMethod = "initSavable")
 public class BMText extends Mesh {
+    private static final Logger logger = Logger.getLogger(BMText.class.getName());
+    private static IDpiScaleProvider _scaleProvider;
+
     protected BMFont _font;
 
     protected String _textString;
@@ -49,6 +58,8 @@ public class BMText extends Mesh {
 
     protected ColorRGBA _textClr = new ColorRGBA(1, 1, 1, 1);
     protected ColorRGBA _tempClr = new ColorRGBA(1, 1, 1, 1);
+
+    final protected List<BMTextChangeListener> _listeners = new ArrayList<>();
 
     public enum AutoScale {
         /**
@@ -70,11 +81,6 @@ public class BMText extends Mesh {
 
     protected AutoScale _autoScale = AutoScale.CapScreenSize;
 
-    /**
-     * @see BMText#setAutoFadeDistanceRange(double, double)
-     * @see BMText#setAutoFadeFixedPixelSize(int)
-     * @see BMText#setAutoFadeFalloff(float)
-     */
     public enum AutoFade {
         /**
          * No auto fade.
@@ -118,8 +124,16 @@ public class BMText extends Mesh {
      * Alignment of the text block from the pivot point
      */
     public enum Align {
-        North(-0.5f, 0.0f), NorthWest(0.0f, 0.0f), NorthEast(-1.0f, 0.0f), Center(-0.5f, -0.5f), West(0.0f, -0.5f), East(
-                -1.0f, -0.5f), South(-0.5f, -1.0f), SouthWest(0.0f, -1.0f), SouthEast(-1.0f, -1.0f);
+        North(-0.5f, 0.0f), //
+        NorthWest(0.0f, 0.0f), //
+        NorthEast(-1.0f, 0.0f), //
+        Center(-0.5f, -0.5f), //
+        West(0.0f, -0.5f), //
+        East(-1.0f, -0.5f), //
+        South(-0.5f, -1.0f), //
+        SouthWest(0.0f, -1.0f), //
+        SouthEast(-1.0f, -1.0f);
+
         public final float horizontal;
         public final float vertical;
 
@@ -141,10 +155,11 @@ public class BMText extends Mesh {
         return new BMText();
     }
 
-    protected BMText() {}
+    protected BMText() {
+    }
 
     /**
-     * 
+     *
      * @param sName
      * @param text
      * @param font
@@ -162,7 +177,7 @@ public class BMText extends Mesh {
     }
 
     /**
-     * 
+     *
      * @param sName
      *            spatial name
      * @param text
@@ -182,13 +197,13 @@ public class BMText extends Mesh {
         _justify = justify;
         _spacing = 0;
         _useBlend = useBlend;
-        if (_font.getOutlineWidth() > 1) {
-            _spacing = _font.getOutlineWidth() - 1;
+        if (_font != null) {
+            if (_font.getOutlineWidth() > 1) {
+                _spacing = _font.getOutlineWidth() - 1;
+            }
         }
 
-        // -- never cull
         setModelBound(null);
-        getSceneHints().setCullHint(CullHint.Never);
 
         // -- default to non-pickable
         getSceneHints().setAllPickingHints(false);
@@ -197,12 +212,16 @@ public class BMText extends Mesh {
         getSceneHints().setLightCombineMode(LightCombineMode.Off);
         getSceneHints().setTextureCombineMode(TextureCombineMode.Replace);
 
-        // triangles
+        // triangles now
         getMeshData().setIndexMode(IndexMode.Triangles);
+
+        setRenderMaterial("ui/textured/default_color.yaml");
 
         setText(text);
 
-        _font.applyRenderStatesTo(this, useBlend);
+        if (_font != null) {
+            _font.applyRenderStatesTo(this, useBlend);
+        }
     }
 
     public void setTextColor(final ReadOnlyColorRGBA clr) {
@@ -218,15 +237,15 @@ public class BMText extends Mesh {
     /**
      * If AutoScale is enabled, this scale parameter acts as a bias. Setting the scale to 0.95 will sharpen the font and
      * increase readability a bit if you're using a bilinear min filter on the texture. When AutoScale is disabled, this
-     * scales the font to world units, e.g. setScale(1) would make the font characters approximately 1 world unit in
+     * scales the font to world units, e.g. setScale(1.0) would make the font characters approximately 1 world unit in
      * size, regardless of the font point size.
      */
     public void setFontScale(final double scale) {
         _fontScale = scale;
 
         if (_autoScale == AutoScale.Off) {
-            final double unit = 1.0 / _font.getSize();
-            final double s = unit * _fontScale;
+            final double scaledScale = _scaleProvider == null ? scale : _scaleProvider.scaleToScreenDpi(scale);
+            final double s = scaledScale / _font.getSize();
             this.setScale(s, s, -s);
         }
     }
@@ -298,20 +317,24 @@ public class BMText extends Mesh {
 
     @Override
     public synchronized void draw(final Renderer r) {
-        if (_textString.length() > 0) {
+        if (_font != null && _textString.length() > 0) {
             final Camera cam = Camera.getCurrentCamera();
 
             if (!(_autoScale == AutoScale.Off && _autoFade == AutoFade.Off)) {
                 updateScaleAndAlpha(cam, r);
             }
-            correctTransform(cam);
-
-            super.draw(r);
+            // if text is transparent, don't spend time
+            // calculating transform and drawing
+            if (getDefaultColor().getAlpha() > 0.05) {
+                correctTransform(cam);
+                updateWorldBound(false);
+                super.draw(r);
+            }
         }
     }
 
     /**
-     * 
+     *
      * @param cam
      */
     public void correctTransform(final Camera cam) {
@@ -322,14 +345,18 @@ public class BMText extends Mesh {
             _look.set(cam.getDirection());
             _left.set(cam.getLeft()).negateLocal();
             _rot.fromAxes(_left, _look, cam.getUp());
-            _worldTransform.setRotation(_rot);
+            if (_rot.isOrthonormal()) {
+                _worldTransform.setRotation(_rot);
+            } else {
+                logger.warning("BMText: non-orthonormal rotation matrix :" + getName());
+            }
         }
         _worldTransform.setScale(_localTransform.getScale());
     }
 
     /**
      * Update the text's scale
-     * 
+     *
      * @param cam
      */
     public void updateScaleAndAlpha(final Camera cam, final Renderer r) {
@@ -345,8 +372,8 @@ public class BMText extends Mesh {
 
         // calculate the height in world units of the screen at that depth
         final double heightAtZ;
-        if (cam.getProjectionMode() == ProjectionMode.Parallel) {
-            heightAtZ = cam.getFrustumTop();
+        if (cam.getProjectionMode().equals(ProjectionMode.Orthographic)) {
+            heightAtZ = cam.getFrustumBottom();
         } else {
             heightAtZ = zDepth * cam.getFrustumTop() / cam.getFrustumNear();
         }
@@ -369,10 +396,26 @@ public class BMText extends Mesh {
                 }
             }
             finalScale *= _fontScale;
-            setScale(finalScale, finalScale, -finalScale);
+            try {
+                setScale(finalScale, finalScale, -finalScale);
+            } catch (final TransformException e) {
+                final Matrix3 rot = new Matrix3(getRotation());
+                final Vector3 c0 = rot.getColumn(0, new Vector3());
+                final Vector3 c1 = rot.getColumn(1, new Vector3());
+                final Vector3 c2 = rot.getColumn(2, new Vector3());
+                c0.normalizeLocal();
+                c1.normalizeLocal();
+                c2.normalizeLocal();
+                rot.setColumn(0, c0);
+                rot.setColumn(1, c1);
+                rot.setColumn(2, c2);
+                setRotation(rot);
+                setScale(finalScale, finalScale, -finalScale);
+            }
         }
 
         // -- adjust alpha -------
+        final float oldAlpha = getDefaultColor().getAlpha();
         switch (_autoFade) {
             case Off:
                 break;
@@ -386,11 +429,17 @@ public class BMText extends Mesh {
                 screenSizeCapAlphaFade(capSize, depthScale, _screenSizeAlphaFalloff);
                 break;
         }
+        final float newAlpha = getDefaultColor().getAlpha();
+        if (newAlpha != oldAlpha) {
+            for (final BMTextChangeListener listener : _listeners) {
+                listener.textAlphaChanged(this, newAlpha);
+            }
+        }
     }
 
     /**
      * Set transparency based on native screen size.
-     * 
+     *
      * @param capSize
      *            1/(font point size)
      * @param depthScale
@@ -507,11 +556,11 @@ public class BMText extends Mesh {
     /**
      * Check whether buffers have sufficient capacity to hold current string values; if not, increase capacity and set
      * the limit.
-     * 
+     *
      * @param text
      */
     protected void checkBuffers(final String text) {
-        final int chunkSize = 20;
+        final int chunkSize = 30;
         final int vertices = 6 * text.length();
         final int chunks = 1 + (vertices / chunkSize);
         final int required = chunks * chunkSize;
@@ -522,6 +571,8 @@ public class BMText extends Mesh {
             texCrdBuffer = BufferUtils.createVector2Buffer(required);
             getMeshData().setVertexBuffer(vertexBuffer);
             getMeshData().setTextureBuffer(texCrdBuffer, 0);
+            getMeshData().getVertexCoords().setVboAccessMode(VBOAccessMode.DynamicDraw);
+            getMeshData().getTextureCoords(0).setVboAccessMode(VBOAccessMode.DynamicDraw);
         }
         vertexBuffer.limit(vertices * 3).rewind();
         texCrdBuffer.limit(vertices * 2).rewind();
@@ -572,6 +623,10 @@ public class BMText extends Mesh {
      * Set text string and recreate geometry
      */
     public synchronized void setText(final String text) {
+        if (_font == null) {
+            return;
+        }
+
         if (text == null) {
             _textString = "";
         } else {
@@ -653,9 +708,16 @@ public class BMText extends Mesh {
                 cursorX += chr.xadvance + kern + _spacing;
             }
         }
-        _meshData.setVertexBuffer(vertices);
-        _meshData.setTextureBuffer(texCrds, 0);
-        _meshData.setIndices(null);
+
+        _meshData.updateVertexCount();
+
+        _meshData.markBufferDirty(MeshData.KEY_VertexCoords);
+        _meshData.markBufferDirty(MeshData.KEY_TextureCoords0);
+
+        // -- notify listeners
+        for (final BMTextChangeListener listener : _listeners) {
+            listener.textSizeChanged(this, _size);
+        }
     }
 
     // this is inefficient yet incredibly convenient
@@ -664,12 +726,6 @@ public class BMText extends Mesh {
         vertices.put(0).put(0).put(0);
         vertices.put(0).put(0).put(0);
         vertices.put(0).put(0).put(0);
-        vertices.put(0).put(0).put(0);
-        vertices.put(0).put(0).put(0);
-        vertices.put(0).put(0).put(0);
-        uvs.put(0).put(0);
-        uvs.put(0).put(0);
-        uvs.put(0).put(0);
         uvs.put(0).put(0);
         uvs.put(0).put(0);
         uvs.put(0).put(0);
@@ -713,7 +769,7 @@ public class BMText extends Mesh {
     /**
      * set a fixed offset from the alignment center of rotation IN FONT UNITS
      */
-    public void setFixedOffset(final Vector2 offset) {
+    public void setFixedOffset(final ReadOnlyVector2 offset) {
         final double x = offset.getX() * _font.getSize();
         final double y = offset.getY() * _font.getSize();
         _fixedOffset.set(x, y);
@@ -722,6 +778,24 @@ public class BMText extends Mesh {
 
     public int getLineCount() {
         return _lines;
+    }
+
+    public ReadOnlyVector2 getFixedOffset() {
+        return _fixedOffset;
+    }
+
+    public ReadOnlyVector2 getSize() {
+        return _size;
+    }
+
+    public void addChangeListener(final BMTextChangeListener listener) {
+        if (!_listeners.contains(listener)) {
+            _listeners.add(listener);
+        }
+    }
+
+    public boolean removeChangeListener(final BMTextChangeListener listener) {
+        return _listeners.remove(listener);
     }
 
     @Override
@@ -758,4 +832,13 @@ public class BMText extends Mesh {
         // return
         return text;
     }
+
+    public static void setDpiScaleProvider(final IDpiScaleProvider provider) {
+        _scaleProvider = provider;
+    }
+
+    public static IDpiScaleProvider getDpiScaleProvider() {
+        return _scaleProvider;
+    }
+
 }

@@ -1,36 +1,44 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.scenegraph;
 
 import java.io.IOException;
 import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.nio.Buffer;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
 import com.ardor3d.renderer.ContextCleanListener;
 import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.RenderContext;
-import com.ardor3d.renderer.Renderer;
+import com.ardor3d.renderer.RenderContext.RenderContextRef;
 import com.ardor3d.renderer.RendererCallable;
+import com.ardor3d.renderer.material.IShaderUtils;
 import com.ardor3d.util.Constants;
-import com.ardor3d.util.ContextIdReference;
 import com.ardor3d.util.GameTaskQueueManager;
 import com.ardor3d.util.export.InputCapsule;
 import com.ardor3d.util.export.OutputCapsule;
+import com.ardor3d.util.export.Savable;
+import com.ardor3d.util.gc.ContextValueReference;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimap;
 
-public abstract class AbstractBufferData<T extends Buffer> {
+public abstract class AbstractBufferData<T extends Buffer> implements Savable {
+
+    /** Specifies the number of coordinates per vertex. Must be 1 - 4. */
+    protected int _valuesPerTuple;
 
     private static Map<AbstractBufferData<?>, Object> _identityCache = new MapMaker().weakKeys().makeMap();
     private static final Object STATIC_REF = new Object();
@@ -40,12 +48,20 @@ public abstract class AbstractBufferData<T extends Buffer> {
     static {
         ContextManager.addContextCleanListener(new ContextCleanListener() {
             public void cleanForContext(final RenderContext renderContext) {
-                AbstractBufferData.cleanAllVBOs(null, renderContext);
+                AbstractBufferData.cleanAllBuffers(null, renderContext);
             }
         });
     }
 
-    protected transient ContextIdReference<AbstractBufferData<T>> _vboIdCache;
+    protected transient ContextValueReference<AbstractBufferData<T>, Integer> _bufferIdCache;
+
+    /**
+     * list of OpenGL contexts we believe have up to date values from this buffer. For use in multi-context mode.
+     */
+    protected transient Set<WeakReference<RenderContextRef>> _uploadedContexts;
+
+    /** if true, we believe we are fully uploaded to OpenGL. For use in single-context mode. */
+    protected transient boolean _uploaded;
 
     /** Buffer holding the data. */
     protected T _buffer;
@@ -58,11 +74,11 @@ public abstract class AbstractBufferData<T extends Buffer> {
     /** VBO Access mode for this buffer. */
     protected VBOAccessMode _vboAccessMode = VBOAccessMode.StaticDraw;
 
-    /** Flag for notifying the renderer that the VBO buffer needs to be updated. */
-    protected boolean _needsRefresh = false;
-
     AbstractBufferData() {
         _identityCache.put(this, STATIC_REF);
+        if (Constants.useMultipleContexts) {
+            _uploadedContexts = new HashSet<>();
+        }
     }
 
     /**
@@ -70,9 +86,23 @@ public abstract class AbstractBufferData<T extends Buffer> {
      */
     public abstract int getByteCount();
 
+    public int getTupleCount() {
+        if (_valuesPerTuple == 0) {
+            return 0;
+        }
+        return getBufferLimit() / _valuesPerTuple;
+    }
+
+    /**
+     * @return number of values per tuple
+     */
+    public int getValuesPerTuple() {
+        return _valuesPerTuple;
+    }
+
     /**
      * Gets the count.
-     * 
+     *
      * @return the count
      */
     public int getBufferLimit() {
@@ -85,7 +115,7 @@ public abstract class AbstractBufferData<T extends Buffer> {
 
     /**
      * Gets the count.
-     * 
+     *
      * @return the count
      */
     public int getBufferCapacity() {
@@ -98,7 +128,7 @@ public abstract class AbstractBufferData<T extends Buffer> {
 
     /**
      * Get the buffer holding the data.
-     * 
+     *
      * @return the buffer
      */
     public T getBuffer() {
@@ -107,7 +137,7 @@ public abstract class AbstractBufferData<T extends Buffer> {
 
     /**
      * Set the buffer holding the data.
-     * 
+     *
      * @param buffer
      *            the buffer to set
      */
@@ -116,14 +146,24 @@ public abstract class AbstractBufferData<T extends Buffer> {
     }
 
     /**
-     * @param glContext
-     *            the object representing the OpenGL context a vbo belongs to. See
-     *            {@link RenderContext#getGlContextRep()}
-     * @return the vbo id of a vbo in the given context. If the vbo is not found in the given context, 0 is returned.
+     * @param context
+     *            the OpenGL context to get our id for.
+     * @return the buffer id of a buffer in the given context. If the buffer is not found in the given context, 0 is
+     *         returned.
      */
-    public int getVBOID(final Object glContext) {
-        if (_vboIdCache != null) {
-            final Integer id = _vboIdCache.getValue(glContext);
+    public int getBufferId(final RenderContext context) {
+        return getBufferIdByRef(context.getGlContextRef());
+    }
+
+    /**
+     * @param contextRef
+     *            the reference to a shared GL context to get our id for.
+     * @return the buffer id of a buffer in the given context. If the buffer is not found in the given context rep, 0 is
+     *         returned.
+     */
+    public int getBufferIdByRef(final RenderContextRef contextRef) {
+        if (_bufferIdCache != null) {
+            final Integer id = _bufferIdCache.getValue(contextRef);
             if (id != null) {
                 return id.intValue();
             }
@@ -132,41 +172,119 @@ public abstract class AbstractBufferData<T extends Buffer> {
     }
 
     /**
-     * Removes any vbo id from this buffer's data for the given OpenGL context.
-     * 
-     * @param glContext
-     *            the object representing the OpenGL context a vbo would belong to. See
-     *            {@link RenderContext#getGlContextRep()}
+     * Removes any buffer id from this object for the given OpenGL context.
+     *
+     * @param context
+     *            the OpenGL context to remove our id for.
      * @return the id removed or 0 if not found.
      */
-    public int removeVBOID(final Object glContext) {
-        if (_vboIdCache != null) {
-            return _vboIdCache.removeValue(glContext);
+    public int removeBufferId(final RenderContext context) {
+        final Integer id = _bufferIdCache.removeValue(context.getGlContextRef());
+        if (Constants.useMultipleContexts) {
+            synchronized (_uploadedContexts) {
+                WeakReference<RenderContextRef> ref;
+                RenderContextRef check;
+                for (final Iterator<WeakReference<RenderContextRef>> it = _uploadedContexts.iterator(); it.hasNext();) {
+                    ref = it.next();
+                    check = ref.get();
+                    if (check == null || check.equals(context.getGlContextRef())) {
+                        it.remove();
+                        continue;
+                    }
+                }
+            }
         } else {
-            return 0;
+            _uploaded = false;
+        }
+        return id != null ? id.intValue() : 0;
+    }
+
+    /**
+     * Sets the buffer id representing this data in regards to the given OpenGL context.
+     *
+     * @param context
+     *            the OpenGL context to set our id for.
+     * @param id
+     *            the buffer id. To be valid, this must greater than 0.
+     * @throws IllegalArgumentException
+     *             if id is less than or equal to 0.
+     */
+    public void setBufferId(final RenderContext context, final int id) {
+        if (id == 0) {
+            throw new IllegalArgumentException("id must != 0");
+        }
+
+        if (_bufferIdCache == null) {
+            _bufferIdCache = ContextValueReference.newReference(this, _vboRefQueue);
+        }
+        _bufferIdCache.put(context.getGlContextRef(), id);
+    }
+
+    /**
+     * @param context
+     *            the RenderContext to check our state for.
+     * @return false if the buffer is dirty for the given context or we don't have the given object in memory.
+     */
+    public boolean isBufferClean(final RenderContext context) {
+        if (Constants.useMultipleContexts) {
+            synchronized (_uploadedContexts) {
+                // check if we are empty...
+                if (_uploadedContexts.isEmpty()) {
+                    return false;
+                }
+
+                WeakReference<RenderContextRef> ref;
+                RenderContextRef check;
+                // look for a matching reference and clean out all weak references that have expired
+                boolean uploaded = false;
+                for (final Iterator<WeakReference<RenderContextRef>> it = _uploadedContexts.iterator(); it.hasNext();) {
+                    ref = it.next();
+                    check = ref.get();
+                    if (check == null) {
+                        // found empty, clean up
+                        it.remove();
+                        continue;
+                    }
+
+                    if (!uploaded && check.equals(context.getGlContextRef())) {
+                        // found match, return false
+                        uploaded = true;
+                    }
+                }
+                return uploaded;
+            }
+        } else {
+            return _uploaded;
         }
     }
 
     /**
-     * Sets the id for a vbo based on this buffer's data in regards to the given OpenGL context.
-     * 
-     * @param glContextRep
-     *            the object representing the OpenGL context a vbo belongs to. See
-     *            {@link RenderContext#getGlContextRep()}
-     * @param vboId
-     *            the vbo id of a vbo. To be valid, this must be not equals to 0.
-     * @throws IllegalArgumentException
-     *             if vboId is less than or equal to 0.
+     * Mark this buffer dirty on all contexts.
      */
-    public void setVBOID(final Object glContextRep, final int vboId) {
-        if (vboId == 0) {
-            throw new IllegalArgumentException("vboId must != 0");
+    public void markDirty() {
+        if (Constants.useMultipleContexts) {
+            synchronized (_uploadedContexts) {
+                _uploadedContexts.clear();
+            }
+        } else {
+            _uploaded = false;
         }
+    }
 
-        if (_vboIdCache == null) {
-            _vboIdCache = new ContextIdReference<AbstractBufferData<T>>(this, _vboRefQueue);
+    /**
+     * Mark this buffer clean on the given context.
+     *
+     * @param context
+     *            the context to marks this buffer clean under.
+     */
+    public void markClean(final RenderContext context) {
+        if (Constants.useMultipleContexts) {
+            synchronized (_uploadedContexts) {
+                _uploadedContexts.add(new WeakReference<>(context.getGlContextRef()));
+            }
+        } else {
+            _uploaded = true;
         }
-        _vboIdCache.put(glContextRep, vboId);
     }
 
     public VBOAccessMode getVboAccessMode() {
@@ -177,74 +295,67 @@ public abstract class AbstractBufferData<T extends Buffer> {
         this._vboAccessMode = vboAccessMode;
     }
 
-    public boolean isNeedsRefresh() {
-        return _needsRefresh;
-    }
-
-    public void setNeedsRefresh(final boolean needsRefresh) {
-        this._needsRefresh = needsRefresh;
-    }
-
-    public static void cleanAllVBOs(final Renderer deleter) {
-        final Multimap<Object, Integer> idMap = ArrayListMultimap.create();
+    public static void cleanAllBuffers(final IShaderUtils utils) {
+        final Multimap<RenderContextRef, Integer> idMap = ArrayListMultimap.create();
 
         // gather up expired vbos... these don't exist in our cache
         gatherGCdIds(idMap);
 
         // Walk through the cached items and delete those too.
         for (final AbstractBufferData<?> buf : _identityCache.keySet()) {
-            if (buf._vboIdCache != null) {
+            if (buf._bufferIdCache != null) {
                 if (Constants.useMultipleContexts) {
-                    final Set<Object> contextObjects = buf._vboIdCache.getContextObjects();
-                    for (final Object o : contextObjects) {
+                    final Set<RenderContextRef> contextObjects = buf._bufferIdCache.getContextRefs();
+                    for (final RenderContextRef o : contextObjects) {
                         // Add id to map
-                        idMap.put(o, buf.getVBOID(o));
+                        idMap.put(o, buf.getBufferIdByRef(o));
                     }
                 } else {
-                    idMap.put(ContextManager.getCurrentContext().getGlContextRep(), buf.getVBOID(null));
+                    idMap.put(ContextManager.getCurrentContext().getGlContextRef(), buf.getBufferIdByRef(null));
                 }
-                buf._vboIdCache.clear();
+                buf._bufferIdCache.clear();
+                buf.markDirty();
             }
         }
 
-        handleVBODelete(deleter, idMap);
+        handleVBODelete(utils, idMap);
     }
 
-    public static void cleanAllVBOs(final Renderer deleter, final RenderContext context) {
-        final Multimap<Object, Integer> idMap = ArrayListMultimap.create();
+    public static void cleanAllBuffers(final IShaderUtils utils, final RenderContext context) {
+        final Multimap<RenderContextRef, Integer> idMap = ArrayListMultimap.create();
 
         // gather up expired vbos... these don't exist in our cache
         gatherGCdIds(idMap);
 
-        final Object glRep = context.getGlContextRep();
+        final RenderContextRef glRef = context.getGlContextRef();
         // Walk through the cached items and delete those too.
         for (final AbstractBufferData<?> buf : _identityCache.keySet()) {
             // only worry about buffers that have received ids.
-            if (buf._vboIdCache != null) {
-                final Integer id = buf._vboIdCache.removeValue(glRep);
+            if (buf._bufferIdCache != null) {
+                final Integer id = buf._bufferIdCache.removeValue(glRef);
                 if (id != null && id.intValue() != 0) {
-                    idMap.put(context.getGlContextRep(), id);
+                    idMap.put(context.getGlContextRef(), id);
                 }
             }
         }
 
-        handleVBODelete(deleter, idMap);
+        handleVBODelete(utils, idMap);
     }
 
     /**
-     * Clean any VBO ids from the hardware, using the given Renderer object to do the work immediately, if given. If
-     * not, we will delete in the next execution of the appropriate context's game task render queue.
-     * 
-     * @param deleter
-     *            the Renderer to use. If null, execution will not occur immediately.
+     * Clean any VBO ids from the hardware, using the given utility object to do the work immediately, if given. If not,
+     * we will delete in the next execution of the appropriate context's game task render queue.
+     *
+     * @param utils
+     *            the util class to use. If null, execution will not occur immediately.
      */
-    public static void cleanExpiredVBOs(final Renderer deleter) {
+    public static void cleanExpiredVBOs(final IShaderUtils utils) {
         // gather up expired vbos...
-        final Multimap<Object, Integer> idMap = gatherGCdIds(null);
+        final Multimap<RenderContextRef, Integer> idMap = gatherGCdIds(null);
 
         if (idMap != null) {
             // send to be deleted (perhaps on next render.)
-            handleVBODelete(deleter, idMap);
+            handleVBODelete(utils, idMap);
         }
     }
 
@@ -254,20 +365,20 @@ public abstract class AbstractBufferData<T extends Buffer> {
     public abstract AbstractBufferData<T> makeCopy();
 
     @SuppressWarnings("unchecked")
-    private static final Multimap<Object, Integer> gatherGCdIds(Multimap<Object, Integer> store) {
+    private static final Multimap<RenderContextRef, Integer> gatherGCdIds(Multimap<RenderContextRef, Integer> store) {
         // Pull all expired vbos from ref queue and add to an id multimap.
-        ContextIdReference<AbstractBufferData<?>> ref;
-        while ((ref = (ContextIdReference<AbstractBufferData<?>>) _vboRefQueue.poll()) != null) {
+        ContextValueReference<AbstractBufferData<?>, Integer> ref;
+        while ((ref = (ContextValueReference<AbstractBufferData<?>, Integer>) _vboRefQueue.poll()) != null) {
             if (Constants.useMultipleContexts) {
-                final Set<Object> contextObjects = ref.getContextObjects();
-                for (final Object o : contextObjects) {
+                final Set<RenderContextRef> renderRefs = ref.getContextRefs();
+                for (final RenderContextRef renderRef : renderRefs) {
                     // Add id to map
-                    final Integer id = ref.getValue(o);
+                    final Integer id = ref.getValue(renderRef);
                     if (id != null) {
                         if (store == null) { // lazy init
                             store = ArrayListMultimap.create();
                         }
-                        store.put(o, id);
+                        store.put(renderRef, id);
                     }
                 }
             } else {
@@ -276,7 +387,7 @@ public abstract class AbstractBufferData<T extends Buffer> {
                     if (store == null) { // lazy init
                         store = ArrayListMultimap.create();
                     }
-                    store.put(ContextManager.getCurrentContext().getGlContextRep(), id);
+                    store.put(ContextManager.getCurrentContext().getGlContextRef(), id);
                 }
             }
             ref.clear();
@@ -285,24 +396,24 @@ public abstract class AbstractBufferData<T extends Buffer> {
         return store;
     }
 
-    private static void handleVBODelete(final Renderer deleter, final Multimap<Object, Integer> idMap) {
+    private static void handleVBODelete(final IShaderUtils utils, final Multimap<RenderContextRef, Integer> idMap) {
         Object currentGLRef = null;
         // Grab the current context, if any.
-        if (deleter != null && ContextManager.getCurrentContext() != null) {
-            currentGLRef = ContextManager.getCurrentContext().getGlContextRep();
+        if (utils != null && ContextManager.getCurrentContext() != null) {
+            currentGLRef = ContextManager.getCurrentContext().getGlContextRef();
         }
         // For each affected context...
-        for (final Object glref : idMap.keySet()) {
+        for (final RenderContextRef glref : idMap.keySet()) {
             // If we have a deleter and the context is current, immediately delete
-            if (deleter != null && glref.equals(currentGLRef)) {
-                deleter.deleteVBOs(idMap.get(glref));
+            if (utils != null && glref.equals(currentGLRef)) {
+                utils.deleteBuffers(idMap.get(glref));
             }
             // Otherwise, add a delete request to that context's render task queue.
             else {
-                GameTaskQueueManager.getManager(ContextManager.getContextForRef(glref)).render(
-                        new RendererCallable<Void>() {
+                GameTaskQueueManager.getManager(ContextManager.getContextForRef(glref))
+                        .render(new RendererCallable<Void>() {
                             public Void call() throws Exception {
-                                getRenderer().deleteVBOs(idMap.get(glref));
+                                getRenderer().getShaderUtils().deleteBuffers(idMap.get(glref));
                                 return null;
                             }
                         });

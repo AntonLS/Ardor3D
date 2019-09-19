@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.pipeline;
@@ -19,6 +19,7 @@ import java.util.logging.Logger;
 import com.ardor3d.example.ExampleBase;
 import com.ardor3d.example.Purpose;
 import com.ardor3d.image.Texture;
+import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Matrix3;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.renderer.IndexMode;
@@ -31,6 +32,8 @@ import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.shape.Quad;
 import com.ardor3d.scenegraph.shape.Teapot;
 import com.ardor3d.scenegraph.shape.Torus;
+import com.ardor3d.surface.ColorSurface;
+import com.ardor3d.util.MaterialUtil;
 import com.ardor3d.util.ReadOnlyTimer;
 import com.ardor3d.util.TextureManager;
 import com.ardor3d.util.export.binary.BinaryExporter;
@@ -44,8 +47,8 @@ import com.ardor3d.util.geom.BufferUtils;
  * stream.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.pipeline.ExportImportExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/pipeline_ExportImportExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/pipeline_ExportImportExample.jpg", //
+        maxHeapMemory = 64)
 public class ExportImportExample extends ExampleBase {
     private static final Logger logger = Logger.getLogger(ExportImportExample.class.getName());
 
@@ -86,7 +89,7 @@ public class ExportImportExample extends ExampleBase {
         final Texture t0 = TextureManager.load("images/ardor3d_white_256.jpg", Texture.MinificationFilter.Trilinear,
                 true);
         final Texture t1 = TextureManager.load("images/flaresmall.jpg", Texture.MinificationFilter.Trilinear, true);
-        t1.setEnvironmentalMapMode(Texture.EnvironmentalMapMode.SphereMap);
+        // t1.setEnvironmentalMapMode(Texture.EnvironmentalMapMode.SphereMap);
         ts.setTexture(t0, 0);
         ts.setTexture(t1, 1);
         ts.setEnabled(true);
@@ -94,6 +97,9 @@ public class ExportImportExample extends ExampleBase {
         final Torus torus = new Torus("Torus", 50, 50, 10, 25);
         torus.updateModelBound();
         torus.setRenderState(ts);
+        final ColorSurface surface = new ColorSurface();
+        surface.setDiffuse(ColorRGBA.BLUE);
+        torus.setProperty(ColorSurface.DefaultPropertyKey, surface);
 
         final Quad quad = new Quad("Quad");
         quad.resize(150, 120);
@@ -115,6 +121,9 @@ public class ExportImportExample extends ExampleBase {
         originalNode.attachChild(multiStrip);
         originalNode.attachChild(teapot);
 
+        // attach and set material
+        _root.attachChild(originalNode);
+
         final ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try {
             new BinaryExporter().save(originalNode, bos);
@@ -123,7 +132,6 @@ public class ExportImportExample extends ExampleBase {
         }
 
         originalNode.setTranslation(new Vector3(-80, 0, -400));
-        _root.attachChild(originalNode);
 
         try {
             binaryImportedNode = (Node) new BinaryImporter().load(bos.toByteArray());
@@ -147,13 +155,14 @@ public class ExportImportExample extends ExampleBase {
         } catch (final IOException e) {
             logger.log(Level.SEVERE, "XMLImporter failed to load file", e);
         }
+        MaterialUtil.autoMaterials(_root);
     }
 
     private Mesh createMultiStrip() {
-        final Mesh mesh = new Mesh();
+        final Mesh mesh = new Mesh("ms");
         final MeshData meshData = mesh.getMeshData();
 
-        final FloatBuffer vertexBuffer = BufferUtils.createVector3Buffer(16);
+        final FloatBuffer vertexBuffer = BufferUtils.createVector3Buffer(12);
 
         vertexBuffer.put(-30).put(0).put(0);
         vertexBuffer.put(-40).put(0).put(0);
@@ -164,11 +173,6 @@ public class ExportImportExample extends ExampleBase {
         vertexBuffer.put(-20).put(0).put(0);
         vertexBuffer.put(-20).put(10).put(0);
         vertexBuffer.put(-10).put(10).put(0);
-
-        vertexBuffer.put(10).put(0).put(0);
-        vertexBuffer.put(20).put(0).put(0);
-        vertexBuffer.put(20).put(10).put(0);
-        vertexBuffer.put(10).put(10).put(0);
 
         vertexBuffer.put(30).put(0).put(0);
         vertexBuffer.put(40).put(0).put(0);
@@ -183,21 +187,18 @@ public class ExportImportExample extends ExampleBase {
         indices.put(0).put(3).put(1).put(2);
         indices.put(4).put(7).put(5).put(6);
 
-        // Quad
-        indices.put(8).put(9).put(10).put(11);
-
         // Triangles
-        indices.put(12).put(13).put(15);
-        indices.put(13).put(15).put(14);
+        indices.put(8).put(9).put(11);
+        indices.put(9).put(11).put(10);
 
         meshData.setIndices(indices);
 
         // Setting sub primitive data
-        final int[] indexLengths = new int[] { 4, 4, 4, 6 };
+        final int[] indexLengths = new int[] { 4, 4, 6 };
         meshData.setIndexLengths(indexLengths);
 
         final IndexMode[] indexModes = new IndexMode[] { IndexMode.TriangleStrip, IndexMode.TriangleStrip,
-                IndexMode.Quads, IndexMode.Triangles };
+                IndexMode.Triangles };
         meshData.setIndexModes(indexModes);
 
         final WireframeState ws = new WireframeState();

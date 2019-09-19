@@ -1,18 +1,19 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.renderer.effect;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import com.google.common.collect.Lists;
+import com.ardor3d.renderer.effect.step.EffectStep;
 
 /**
  * A RenderEffect object represents a complete set of instructions necessary for applying a specific effect to our
@@ -21,21 +22,21 @@ import com.google.common.collect.Lists;
 public abstract class RenderEffect {
 
     /** A list of logical steps that comprise our effect. */
-    protected final List<EffectStep> _steps = Lists.newArrayList();
+    protected final List<EffectStep> _steps = new ArrayList<>();
 
     /** Is this render effect active? */
     protected boolean _enabled = true;
 
     /**
      * Do any setup necessary for our effect prior. This should be called only once, or on changes to the effect chain.
-     * 
+     *
      * @param manager
      */
     public void prepare(final EffectManager manager) {}
 
     /**
      * Render this effect.
-     * 
+     *
      * @param manager
      */
     public void render(final EffectManager manager) {

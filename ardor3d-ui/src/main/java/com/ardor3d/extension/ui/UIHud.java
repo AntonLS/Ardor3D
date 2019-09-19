@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
@@ -22,20 +22,21 @@ import java.util.logging.Logger;
 import com.ardor3d.extension.ui.event.DragListener;
 import com.ardor3d.extension.ui.util.HudListener;
 import com.ardor3d.framework.Canvas;
-import com.ardor3d.input.ButtonState;
-import com.ardor3d.input.GrabbedState;
 import com.ardor3d.input.InputState;
-import com.ardor3d.input.Key;
-import com.ardor3d.input.KeyboardState;
-import com.ardor3d.input.MouseButton;
-import com.ardor3d.input.MouseManager;
-import com.ardor3d.input.MouseState;
 import com.ardor3d.input.PhysicalLayer;
+import com.ardor3d.input.character.CharacterInputEvent;
+import com.ardor3d.input.keyboard.Key;
+import com.ardor3d.input.keyboard.KeyboardState;
 import com.ardor3d.input.logical.BasicTriggersApplier;
 import com.ardor3d.input.logical.InputTrigger;
 import com.ardor3d.input.logical.LogicalLayer;
 import com.ardor3d.input.logical.TriggerAction;
 import com.ardor3d.input.logical.TwoInputStates;
+import com.ardor3d.input.mouse.ButtonState;
+import com.ardor3d.input.mouse.GrabbedState;
+import com.ardor3d.input.mouse.MouseButton;
+import com.ardor3d.input.mouse.MouseManager;
+import com.ardor3d.input.mouse.MouseState;
 import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.Renderer;
 import com.ardor3d.renderer.queue.RenderBucketType;
@@ -45,14 +46,13 @@ import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.scenegraph.hint.CullHint;
 import com.ardor3d.scenegraph.hint.LightCombineMode;
 import com.ardor3d.scenegraph.hint.TextureCombineMode;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Lists;
 
 /**
  * UIHud represents a "Heads Up Display" or the base of a game UI scenegraph. Various UI Input, dragging, events, etc.
  * are handled through this class.
  */
 public class UIHud extends Node {
+
     private static final Logger _logger = Logger.getLogger(UIHud.class.getName());
 
     public static int MOUSE_CLICK_SENSITIVITY = 5;
@@ -60,7 +60,7 @@ public class UIHud extends Node {
     /**
      * The logical layer used by this UI to receive input events.
      */
-    private final LogicalLayer _logicalLayer = new LogicalLayer();
+    protected final LogicalLayer _logicalLayer = new LogicalLayer();
 
     /**
      * The single tooltip used by this hud - lazy inited
@@ -71,8 +71,13 @@ public class UIHud extends Node {
      * Internal flag indicating whether the last input event was consumed by the UI. This is used to decide if we will
      * forward the event to the next LogicalLayer.
      */
-    private boolean _mouseInputConsumed;
-    private boolean _keyInputConsumed;
+    protected boolean _mouseInputConsumed;
+    protected boolean _keyInputConsumed;
+
+    /**
+     * If true, we'll assume mouse input is always consumed whenever lastMouseOverComponent is not null.
+     */
+    protected boolean _autoConsumeMouseOnOver = true;
 
     /**
      * Flag used to determine if we should use mouse input when mouse is grabbed. Defaults to true.
@@ -109,7 +114,7 @@ public class UIHud extends Node {
     /**
      * List of hud listeners.
      */
-    private final List<HudListener> _hudListeners = Lists.newArrayList();
+    private final List<HudListener> _hudListeners = new ArrayList<>();
 
     /**
      * An optional mouseManager, required in order to test mouse is grabbed.
@@ -117,20 +122,31 @@ public class UIHud extends Node {
     private MouseManager _mouseManager;
 
     /**
-     * The list of currently displayed popup menus, with each entry being a submenu of the one previous.
+     * The list of currently displayed pop-overs, with each entry being a "child" of the one previous.
      */
-    private final List<UIPopupMenu> _popupMenus = Lists.newArrayList();
+    private final List<IPopOver> _popovers = new ArrayList<>();
+
+    private final Canvas _canvas;
+
+    private UIInputPostHook _postKeyboardHook;
+
+    private UIInputPostHook _postMouseHook;
+
+    private final Camera _hudCamera;
 
     /**
-     * Construct a new UIHud
+     * Construct a new UIHud for a given canvas
      */
-    public UIHud() {
+    public UIHud(final Canvas canvas) {
         setName("UIHud");
+        _canvas = canvas;
+        _hudCamera = Camera.newOrthoCamera(_canvas);
 
         getSceneHints().setCullHint(CullHint.Never);
         getSceneHints().setRenderBucketType(RenderBucketType.Skip);
         getSceneHints().setLightCombineMode(LightCombineMode.Off);
         getSceneHints().setTextureCombineMode(TextureCombineMode.Replace);
+        setLayer(Spatial.LAYER_UI);
 
         final ZBufferState zstate = new ZBufferState();
         zstate.setEnabled(false);
@@ -166,13 +182,14 @@ public class UIHud extends Node {
 
     /**
      * Add the given component to this hud.
-     * 
+     *
      * @param component
      *            the component to add
      */
     public void add(final UIComponent component) {
         attachChild(component);
         component.attachedToHud();
+        component.fireComponentDirty();
         for (final HudListener hl : _hudListeners) {
             hl.componentAdded(component);
         }
@@ -180,7 +197,7 @@ public class UIHud extends Node {
 
     /**
      * Remove the given component from the hud
-     * 
+     *
      * @param component
      *            the component to remove
      */
@@ -226,7 +243,7 @@ public class UIHud extends Node {
 
     /**
      * Reorder the components so that the given component is drawn last and is therefore "on top" of any others.
-     * 
+     *
      * @param component
      *            the component to bring to front
      */
@@ -238,7 +255,7 @@ public class UIHud extends Node {
     /**
      * Look for a UIComponent at the given screen coordinates. If no pickable component is at that location, null is
      * returned.
-     * 
+     *
      * @param x
      *            the x screen coordinate
      * @param y
@@ -247,9 +264,11 @@ public class UIHud extends Node {
      */
     public UIComponent getUIComponent(final int x, final int y) {
         UIComponent found = null;
-        for (int i = _popupMenus.size(); --i >= 0;) {
-            final UIPopupMenu menu = _popupMenus.get(i);
-            found = menu.getUIComponent(x, y);
+
+        // check for a popover first
+        for (int i = _popovers.size(); --i >= 0;) {
+            final IPopOver popover = _popovers.get(i);
+            found = popover.getUIComponent(x, y);
             if (found != null) {
                 return found;
             }
@@ -289,7 +308,9 @@ public class UIHud extends Node {
     public void setFocusedComponent(final UIComponent compomponent) {
         // If we already have a different focused component, tell it that it has lost focus.
         if (_focusedComponent != null && _focusedComponent != compomponent) {
-            _focusedComponent.lostFocus();
+            final UIComponent oldFocus = _focusedComponent;
+            _focusedComponent = null;
+            oldFocus.lostFocus();
         }
 
         // Set our focused component to the given component (or its focus target)
@@ -329,7 +350,9 @@ public class UIHud extends Node {
      */
     @Override
     public void draw(final Renderer r) {
-        r.setOrtho();
+        final Camera cam = Camera.getCurrentCamera();
+        r.getQueue().pushBuckets();
+        _hudCamera.apply(r);
         try {
             Spatial child;
             int i, max;
@@ -339,9 +362,9 @@ public class UIHud extends Node {
                     child.onDraw(r);
                 }
             }
-            if (!_popupMenus.isEmpty()) {
-                for (i = 0, max = _popupMenus.size(); i < max; i++) {
-                    _popupMenus.get(i).onDraw(r);
+            if (!_popovers.isEmpty()) {
+                for (i = 0, max = _popovers.size(); i < max; i++) {
+                    _popovers.get(i).onDraw(r);
                 }
             }
             if (_ttip != null && _ttip.isVisible()) {
@@ -350,19 +373,19 @@ public class UIHud extends Node {
         } catch (final Exception e) {
             UIHud._logger.logp(Level.SEVERE, getClass().getName(), "draw(Renderer)", "Exception", e);
         } finally {
-            if (r.isInOrthoMode()) {
-                r.unsetOrtho();
-            }
-            r.clearClips();
+            r.getScissorUtils().clearClips();
         }
+        r.renderBuckets();
+        r.getQueue().popBuckets();
+        cam.apply(r);
     }
 
     @Override
     public void updateGeometricState(final double time, final boolean initiator) {
         super.updateGeometricState(time, initiator);
-        if (!_popupMenus.isEmpty()) {
-            for (int i = 0, max = _popupMenus.size(); i < max; i++) {
-                _popupMenus.get(i).updateGeometricState(time, true);
+        if (!_popovers.isEmpty()) {
+            for (int i = 0, max = _popovers.size(); i < max; i++) {
+                _popovers.get(i).updateGeometricState(time, true);
             }
         }
         if (_ttip != null && _ttip.isVisible()) {
@@ -372,7 +395,7 @@ public class UIHud extends Node {
 
     /**
      * Add the given drag listener to this hud. Expired WeakReferences are also cleaned.
-     * 
+     *
      * @param listener
      *            the listener to add
      */
@@ -389,7 +412,7 @@ public class UIHud extends Node {
 
     /**
      * Remove any matching drag listener from this hud. Expired WeakReferences are also cleaned.
-     * 
+     *
      * @param listener
      *            the listener to remove
      * @return true if at least one "equal" DragListener was found in the pool of listeners and removed.
@@ -410,7 +433,7 @@ public class UIHud extends Node {
 
     /**
      * Add the given hud listener to this hud.
-     * 
+     *
      * @param listener
      *            the listener to add
      */
@@ -420,7 +443,7 @@ public class UIHud extends Node {
 
     /**
      * Remove any matching hud listener from this hud.
-     * 
+     *
      * @param listener
      *            the listener to remove
      * @return true if at least one "equal" HudListener was found in the pool of listeners and removed.
@@ -473,7 +496,7 @@ public class UIHud extends Node {
     /**
      * Convenience method for setting up the UI's connection to the Ardor3D input system, along with a forwarding
      * address for input events that the UI does not care about.
-     * 
+     *
      * @param canvas
      *            the canvas to register with
      * @param physicalLayer
@@ -481,9 +504,9 @@ public class UIHud extends Node {
      * @param forwardTo
      *            a LogicalLayer to send unconsumed (by the UI) input events to.
      */
-    public void setupInput(final Canvas canvas, final PhysicalLayer physicalLayer, final LogicalLayer forwardTo) {
+    public void setupInput(final PhysicalLayer physicalLayer, final LogicalLayer forwardTo) {
         // Set up this logical layer to listen for events from the given canvas and PhysicalLayer
-        _logicalLayer.registerInput(canvas, physicalLayer);
+        _logicalLayer.registerInput(_canvas, physicalLayer);
 
         // Set up forwarding for events not consumed.
         if (forwardTo != null) {
@@ -494,25 +517,43 @@ public class UIHud extends Node {
                         final TwoInputStates states, final double tpf) {
                     super.checkAndPerformTriggers(triggers, source, states, tpf);
 
-                    if (!_mouseInputConsumed) {
+                    final InputState prev = states.getPrevious();
+                    final InputState curr = states.getCurrent();
+                    if (!_mouseInputConsumed && (!_autoConsumeMouseOnOver || _lastMouseOverComponent == null)) {
                         if (!_keyInputConsumed) {
                             // nothing consumed
-                            forwardTo.getApplier()
-                                    .checkAndPerformTriggers(forwardTo.getTriggers(), source, states, tpf);
+                            forwardTo.getApplier().checkAndPerformTriggers(forwardTo.getTriggers(), source, states,
+                                    tpf);
                         } else {
                             // only key state consumed
-                            final TwoInputStates forwardingState = new TwoInputStates(states.getPrevious(),
-                                    new InputState(KeyboardState.NOTHING, states.getCurrent().getMouseState(), states
-                                            .getCurrent().getControllerState()));
+                            final TwoInputStates forwardingState = new TwoInputStates(
+                                    new InputState(KeyboardState.NOTHING, //
+                                            prev.getMouseState(), //
+                                            prev.getControllerState(), //
+                                            prev.getGestureState(), //
+                                            prev.getCharacterState()),
+                                    new InputState(KeyboardState.NOTHING, //
+                                            curr.getMouseState(), //
+                                            curr.getControllerState(), //
+                                            curr.getGestureState(), //
+                                            curr.getCharacterState()));
                             forwardTo.getApplier().checkAndPerformTriggers(forwardTo.getTriggers(), source,
                                     forwardingState, tpf);
                         }
                     } else {
                         if (!_keyInputConsumed) {
                             // only mouse consumed
-                            final TwoInputStates forwardingState = new TwoInputStates(states.getPrevious(),
-                                    new InputState(states.getCurrent().getKeyboardState(), MouseState.NOTHING, states
-                                            .getCurrent().getControllerState()));
+                            final TwoInputStates forwardingState = new TwoInputStates(
+                                    new InputState(prev.getKeyboardState(), //
+                                            MouseState.NOTHING, //
+                                            prev.getControllerState(), //
+                                            prev.getGestureState(), //
+                                            prev.getCharacterState()),
+                                    new InputState(curr.getKeyboardState(), //
+                                            MouseState.NOTHING, //
+                                            curr.getControllerState(), //
+                                            curr.getGestureState(), //
+                                            curr.getCharacterState()));
                             forwardTo.getApplier().checkAndPerformTriggers(forwardTo.getTriggers(), source,
                                     forwardingState, tpf);
                         } else {
@@ -530,12 +571,10 @@ public class UIHud extends Node {
     /**
      * Set up our logical layer with a trigger that hands input to the UI and saves whether it was "consumed".
      */
-    private void setupLogicalLayer() {
-        _logicalLayer.registerTrigger(new InputTrigger(new Predicate<TwoInputStates>() {
-            public boolean apply(final TwoInputStates arg0) {
-                // always trigger this.
-                return true;
-            }
+    protected void setupLogicalLayer() {
+        _logicalLayer.registerTrigger(new InputTrigger((final TwoInputStates arg0) -> {
+            // always trigger this.
+            return true;
         }, new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputStates, final double tpf) {
                 _mouseInputConsumed = offerMouseInputToUI(inputStates);
@@ -544,7 +583,7 @@ public class UIHud extends Node {
         }));
     }
 
-    private boolean offerKeyInputToUI(final TwoInputStates inputStates) {
+    protected boolean offerKeyInputToUI(final TwoInputStates inputStates) {
         boolean consumed = false;
         final InputState current = inputStates.getCurrent();
 
@@ -581,18 +620,35 @@ public class UIHud extends Node {
             }
         }
 
+        {
+            // Character input
+            final List<CharacterInputEvent> events = current.getCharacterState().getEvents();
+            if (!events.isEmpty()) {
+                for (final CharacterInputEvent e : events) {
+                    fireCharacterReceived(e.getValue(), current);
+                }
+            }
+        }
+
+        // Post hook, if we have one
+        {
+            if (_postKeyboardHook != null) {
+                consumed |= _postKeyboardHook.process(consumed, this, inputStates);
+            }
+        }
+
         return consumed;
 
     }
 
     /**
      * Parse a given set of input states for UI events and pass these events to the UI components contained in this hud.
-     * 
+     *
      * @param inputStates
      *            our two InputState objects, detailing a before and after snapshot of the input system.
      * @return true if a UI element consumed the event described by inputStates.
      */
-    private boolean offerMouseInputToUI(final TwoInputStates inputStates) {
+    protected boolean offerMouseInputToUI(final TwoInputStates inputStates) {
         boolean consumed = false;
         final InputState current = inputStates.getCurrent();
 
@@ -602,7 +658,6 @@ public class UIHud extends Node {
             final MouseState previousMState = inputStates.getPrevious().getMouseState();
             final MouseState currentMState = current.getMouseState();
             if (previousMState != currentMState) {
-
                 // Check for presses.
                 if (currentMState.hasButtonState(ButtonState.DOWN)) {
                     final EnumSet<MouseButton> pressed = currentMState.getButtonsPressedSince(previousMState);
@@ -633,13 +688,20 @@ public class UIHud extends Node {
                     consumed |= fireMouseWheelMoved(currentMState.getDwheel(), current);
                 }
             }
+
+            // Post hook, if we have one
+            {
+                if (_postMouseHook != null) {
+                    consumed |= _postMouseHook.process(consumed, this, inputStates);
+                }
+            }
         }
         return consumed || _dragListener != null;
     }
 
     /**
      * Handle mouse presses.
-     * 
+     *
      * @param button
      *            the button that was pressed.
      * @param currentIS
@@ -680,7 +742,7 @@ public class UIHud extends Node {
 
         // bring any clicked components to front
         final UIComponent component = over.getTopLevelComponent();
-        if (component != null && !(component instanceof UIPopupMenu)) {
+        if (component != null && !(component instanceof IPopOver)) {
             bringToFront(component);
             closePopupMenus();
         }
@@ -689,7 +751,7 @@ public class UIHud extends Node {
 
     /**
      * Handle mouse releases.
-     * 
+     *
      * @param button
      *            the button that was release.
      * @param currentIS
@@ -724,7 +786,7 @@ public class UIHud extends Node {
 
     /**
      * Handle movement events.
-     * 
+     *
      * @param mouseX
      *            the new x position of the mouse
      * @param mouseY
@@ -771,7 +833,7 @@ public class UIHud extends Node {
 
     /**
      * Handle wheel events.
-     * 
+     *
      * @param wheelDx
      *            the change in wheel position.
      * @param currentIS
@@ -790,7 +852,7 @@ public class UIHud extends Node {
 
     /**
      * Handle key presses.
-     * 
+     *
      * @param key
      *            the pressed key
      * @param currentIS
@@ -807,7 +869,7 @@ public class UIHud extends Node {
 
     /**
      * Handle key held (pressed down over more than one input update cycle.)
-     * 
+     *
      * @param key
      *            the held key
      * @param currentIS
@@ -824,7 +886,7 @@ public class UIHud extends Node {
 
     /**
      * Handle key releases.
-     * 
+     *
      * @param key
      *            the released key
      * @param currentIS
@@ -839,29 +901,42 @@ public class UIHud extends Node {
         }
     }
 
-    public int getWidth() {
-        final Camera cam = Camera.getCurrentCamera();
-        if (cam != null) {
-            return cam.getWidth();
+    /**
+     * Handle receipt of character values, generally after typing on the keyboard.
+     *
+     * @param value
+     *            character value received.
+     * @param currentIS
+     *            the current input state.
+     * @return if this event is consumed.
+     */
+    public boolean fireCharacterReceived(final char value, final InputState currentIS) {
+        if (_focusedComponent != null) {
+            return _focusedComponent.characterReceived(value, currentIS);
         } else {
-            return 1;
+            return false;
         }
+    }
+
+    public int getWidth() {
+        return _canvas.getCanvasRenderer().getCamera().getWidth();
     }
 
     public int getHeight() {
-        final Camera cam = Camera.getCurrentCamera();
-        if (cam != null) {
-            return cam.getHeight();
-        } else {
-            return 1;
-        }
+        return _canvas.getCanvasRenderer().getCamera().getHeight();
+    }
+
+    public Camera getHudCamera() {
+        return _hudCamera;
     }
 
     public void closePopupMenus() {
-        for (final UIPopupMenu menu : _popupMenus) {
-            menu.close();
+        for (final IPopOver menu : _popovers) {
+            if (menu.isAttachedToHUD()) {
+                menu.close();
+            }
         }
-        _popupMenus.clear();
+        _popovers.clear();
     }
 
     public void closePopupMenusAfter(final Object parent) {
@@ -871,8 +946,8 @@ public class UIHud extends Node {
         }
 
         boolean found = false;
-        for (final Iterator<UIPopupMenu> it = _popupMenus.iterator(); it.hasNext();) {
-            final UIPopupMenu pMenu = it.next();
+        for (final Iterator<IPopOver> it = _popovers.iterator(); it.hasNext();) {
+            final IPopOver pMenu = it.next();
             if (found) {
                 pMenu.close();
                 it.remove();
@@ -882,14 +957,47 @@ public class UIHud extends Node {
         }
     }
 
-    public void showPopupMenu(final UIPopupMenu menu) {
+    public void showPopOver(final IPopOver pop) {
         closePopupMenus();
-        _popupMenus.add(menu);
-        menu.setHud(this);
+        _popovers.add(pop);
+        pop.setHud(this);
     }
 
-    public void showSubPopupMenu(final UIPopupMenu menu) {
-        _popupMenus.add(menu);
-        menu.setHud(this);
+    public void showSubPopupMenu(final IPopOver pop) {
+        _popovers.remove(pop);
+        _popovers.add(pop);
+        pop.setHud(this);
+    }
+
+    public UIInputPostHook getPostKeyboardHook() {
+        return _postKeyboardHook;
+    }
+
+    public void setPostKeyboardHook(final UIInputPostHook postKeyboardHook) {
+        _postKeyboardHook = postKeyboardHook;
+    }
+
+    public UIInputPostHook getPostMouseHook() {
+        return _postMouseHook;
+    }
+
+    public void setPostMouseHook(final UIInputPostHook postMouseHook) {
+        _postMouseHook = postMouseHook;
+    }
+
+    public Canvas getCanvas() {
+        return _canvas;
+    }
+
+    public interface UIInputPostHook {
+        boolean process(boolean consumed, UIHud source, TwoInputStates inputStates);
+    }
+
+    public void setAutoConsumeMouseOnOver(final boolean autoConsumeMouseOnOver) {
+        _autoConsumeMouseOnOver = autoConsumeMouseOnOver;
+    }
+
+    public boolean isAutoConsumeMouseOnOver() {
+        return _autoConsumeMouseOnOver;
     }
 }

@@ -1,22 +1,22 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.animation.skeletal.state;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import com.ardor3d.extension.animation.skeletal.AnimationManager;
 import com.ardor3d.extension.animation.skeletal.blendtree.BinaryLERPSource;
 import com.ardor3d.extension.animation.skeletal.layer.AnimationLayer;
 import com.ardor3d.math.MathUtils;
-import com.google.common.collect.Maps;
 
 /**
  * An abstract transition state that blends between two other states.
@@ -195,7 +195,7 @@ public abstract class AbstractTwoStateLerpTransition extends AbstractTransitionS
         // too many new transform data objects. This assumes that a
         // same state always returns the same transform data objects.
         if (_sourceData == null) {
-            _sourceData = Maps.newHashMap();
+            _sourceData = new HashMap<>();
         }
         return BinaryLERPSource.combineSourceData(sourceAData, sourceBData, getPercent(), _sourceData);
     }

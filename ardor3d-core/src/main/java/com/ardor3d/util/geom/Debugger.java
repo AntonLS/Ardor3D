@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.util.geom;
@@ -23,20 +23,19 @@ import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.math.type.ReadOnlyColorRGBA;
 import com.ardor3d.renderer.Camera;
-import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.IndexMode;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.TextureRenderer;
-import com.ardor3d.renderer.TextureRendererFactory;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
 import com.ardor3d.renderer.state.RenderState;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.renderer.state.WireframeState;
 import com.ardor3d.renderer.state.ZBufferState;
+import com.ardor3d.renderer.texture.TextureRenderer;
 import com.ardor3d.scenegraph.IndexBufferData;
 import com.ardor3d.scenegraph.Line;
 import com.ardor3d.scenegraph.Mesh;
+import com.ardor3d.scenegraph.MeshData;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.scenegraph.hint.CullHint;
@@ -48,12 +47,13 @@ import com.ardor3d.scenegraph.shape.OrientedBox;
 import com.ardor3d.scenegraph.shape.Quad;
 import com.ardor3d.scenegraph.shape.Sphere;
 import com.ardor3d.util.ExtendedCamera;
+import com.ardor3d.util.MaterialUtil;
 
 /**
  * Debugger provides tools for viewing scene data such as boundings and normals.
- * 
+ *
  * Make sure you set the RenderStateFactory before using this class.
- * 
+ *
  * @see Debugger#setRenderStateFactory(RenderStateFactory)
  */
 public final class Debugger {
@@ -87,7 +87,7 @@ public final class Debugger {
 
     /**
      * <code>drawBounds</code> draws the bounding volume for a given Spatial and its children.
-     * 
+     *
      * @param se
      *            the Spatial to draw boundings for.
      * @param r
@@ -99,7 +99,7 @@ public final class Debugger {
 
     /**
      * <code>drawBounds</code> draws the bounding volume for a given Spatial and optionally its children.
-     * 
+     *
      * @param se
      *            the Spatial to draw boundings for.
      * @param r
@@ -181,11 +181,11 @@ public final class Debugger {
     static {
         normalLines.getSceneHints().setRenderBucketType(RenderBucketType.Skip);
         normalLines.setRenderState(new ZBufferState());
-        normalLines.setLineWidth(3.0f);
         normalLines.getMeshData().setIndexMode(IndexMode.Lines);
         normalLines.getMeshData().setVertexBuffer(BufferUtils.createVector3Buffer(500));
         normalLines.getMeshData().setColorBuffer(BufferUtils.createColorBuffer(500));
         normalLines.updateWorldRenderStates(false);
+        MaterialUtil.autoMaterials(normalLines);
     }
     private static final Vector3 _normalVect = new Vector3(), _normalVect2 = new Vector3();
     public static final ColorRGBA NORMAL_COLOR_BASE = new ColorRGBA(ColorRGBA.RED);
@@ -197,7 +197,7 @@ public final class Debugger {
 
     /**
      * <code>drawNormals</code> draws lines representing normals for a given Spatial and its children.
-     * 
+     *
      * @param element
      *            the Spatial to draw normals for.
      * @param r
@@ -213,7 +213,7 @@ public final class Debugger {
 
     /**
      * <code>drawNormals</code> draws the normals for a given Spatial and optionally its children.
-     * 
+     *
      * @param element
      *            the Spatial to draw normals for.
      * @param r
@@ -223,14 +223,16 @@ public final class Debugger {
      * @param doChildren
      *            if true, normals for any children will also be drawn
      */
-    public static void drawNormals(final Spatial element, final Renderer r, final double size, final boolean doChildren) {
+    public static void drawNormals(final Spatial element, final Renderer r, final double size,
+            final boolean doChildren) {
         if (element == null) {
             return;
         }
 
         final Camera cam = Camera.getCurrentCamera();
         final int state = cam.getPlaneState();
-        if (element.getWorldBound() != null && cam.contains(element.getWorldBound()) == Camera.FrustumIntersect.Outside) {
+        if (element.getWorldBound() != null
+                && cam.contains(element.getWorldBound()) == Camera.FrustumIntersect.Outside) {
             cam.setPlaneState(state);
             return;
         }
@@ -261,35 +263,36 @@ public final class Debugger {
             final FloatBuffer norms = mesh.getMeshData().getNormalBuffer();
             final FloatBuffer verts = mesh.getMeshData().getVertexBuffer();
             if (norms != null && verts != null && norms.limit() == verts.limit()) {
-                FloatBuffer lineVerts = normalLines.getMeshData().getVertexBuffer();
+                final MeshData normMD = normalLines.getMeshData();
+                FloatBuffer lineVerts = normMD.getVertexBuffer();
                 if (lineVerts.capacity() < (3 * (2 * mesh.getMeshData().getVertexCount()))) {
-                    normalLines.getMeshData().setVertexBuffer(null);
+                    normMD.setVertexBuffer(null);
                     lineVerts = BufferUtils.createVector3Buffer(mesh.getMeshData().getVertexCount() * 2);
-                    normalLines.getMeshData().setVertexBuffer(lineVerts);
+                    normMD.setVertexBuffer(lineVerts);
                 } else {
                     lineVerts.clear();
                     lineVerts.limit(3 * 2 * mesh.getMeshData().getVertexCount());
-                    normalLines.getMeshData().setVertexBuffer(lineVerts);
+                    normMD.setVertexBuffer(lineVerts);
                 }
 
-                FloatBuffer lineColors = normalLines.getMeshData().getColorBuffer();
+                FloatBuffer lineColors = normMD.getColorBuffer();
                 if (lineColors.capacity() < (4 * (2 * mesh.getMeshData().getVertexCount()))) {
-                    normalLines.getMeshData().setColorBuffer(null);
+                    normMD.setColorBuffer(null);
                     lineColors = BufferUtils.createColorBuffer(mesh.getMeshData().getVertexCount() * 2);
-                    normalLines.getMeshData().setColorBuffer(lineColors);
+                    normMD.setColorBuffer(lineColors);
                 } else {
                     lineColors.clear();
                 }
 
-                IndexBufferData<?> lineInds = normalLines.getMeshData().getIndices();
-                if (lineInds == null || lineInds.getBufferCapacity() < (normalLines.getMeshData().getVertexCount())) {
-                    normalLines.getMeshData().setIndices(null);
-                    lineInds = BufferUtils.createIndexBufferData(mesh.getMeshData().getVertexCount() * 2, normalLines
-                            .getMeshData().getVertexCount() - 1);
-                    normalLines.getMeshData().setIndices(lineInds);
+                IndexBufferData<?> lineInds = normMD.getIndices();
+                if (lineInds == null || lineInds.getBufferCapacity() < (normMD.getVertexCount())) {
+                    normMD.setIndices(null);
+                    lineInds = BufferUtils.createIndexBufferData(mesh.getMeshData().getVertexCount() * 2,
+                            normMD.getVertexCount() - 1);
+                    normMD.setIndices(lineInds);
                 } else {
                     lineInds.getBuffer().clear();
-                    lineInds.getBuffer().limit(normalLines.getMeshData().getVertexCount());
+                    lineInds.getBuffer().limit(normMD.getVertexCount());
                 }
 
                 verts.rewind();
@@ -326,6 +329,10 @@ public final class Debugger {
                     lineInds.put((x * 2) + 1);
                 }
 
+                normMD.markBufferDirty(MeshData.KEY_VertexCoords);
+                normMD.markBufferDirty(MeshData.KEY_ColorCoords);
+                normMD.markBuffersDirty();
+                normMD.markIndicesDirty();
                 normalLines.onDraw(r);
             }
 
@@ -341,14 +348,16 @@ public final class Debugger {
         }
     }
 
-    public static void drawTangents(final Spatial element, final Renderer r, final double size, final boolean doChildren) {
+    public static void drawTangents(final Spatial element, final Renderer r, final double size,
+            final boolean doChildren) {
         if (element == null) {
             return;
         }
 
         final Camera cam = Camera.getCurrentCamera();
         final int state = cam.getPlaneState();
-        if (element.getWorldBound() != null && cam.contains(element.getWorldBound()) == Camera.FrustumIntersect.Outside) {
+        if (element.getWorldBound() != null
+                && cam.contains(element.getWorldBound()) == Camera.FrustumIntersect.Outside) {
             cam.setPlaneState(state);
             return;
         }
@@ -398,8 +407,8 @@ public final class Debugger {
                 IndexBufferData<?> lineInds = normalLines.getMeshData().getIndices();
                 if (lineInds == null || lineInds.getBufferCapacity() < (normalLines.getMeshData().getVertexCount())) {
                     normalLines.getMeshData().setIndices(null);
-                    lineInds = BufferUtils.createIndexBufferData(mesh.getMeshData().getVertexCount() * 2, normalLines
-                            .getMeshData().getVertexCount() - 1);
+                    lineInds = BufferUtils.createIndexBufferData(mesh.getMeshData().getVertexCount() * 2,
+                            normalLines.getMeshData().getVertexCount() - 1);
                     normalLines.getMeshData().setIndices(lineInds);
                 } else {
                     lineInds.getBuffer().clear();
@@ -467,7 +476,8 @@ public final class Debugger {
         drawAxis(spat, r, true, false);
     }
 
-    public static void drawAxis(final Spatial spat, final Renderer r, final boolean drawChildren, final boolean drawAll) {
+    public static void drawAxis(final Spatial spat, final Renderer r, final boolean drawChildren,
+            final boolean drawAll) {
         if (!axisInited) {
             final BlendState blendState = new BlendState();
             blendState.setBlendEnabled(true);
@@ -527,7 +537,7 @@ public final class Debugger {
     private static TextureRenderer bufTexRend;
 
     static {
-        bQuad.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        bQuad.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
         bQuad.getSceneHints().setCullHint(CullHint.Never);
     }
 
@@ -573,8 +583,7 @@ public final class Debugger {
             height = newHeight;
         }
         if (bufTexRend == null) {
-            bufTexRend = TextureRendererFactory.INSTANCE.createTextureRenderer(width, height, r, ContextManager
-                    .getCurrentContext().getCapabilities());
+            bufTexRend = r.createTextureRenderer(width, height, 0, 0);
             bufTexRend.setupTexture(bufTexture);
         }
         bufTexRend.copyToTexture(bufTexture, 0, 0, width, height, 0, 0);
@@ -627,7 +636,6 @@ public final class Debugger {
             lineFrustum.getMeshData().setIndexModes(
                     new IndexMode[] { IndexMode.LineLoop, IndexMode.LineLoop, IndexMode.Lines, IndexMode.Lines });
             lineFrustum.getMeshData().setIndexLengths(new int[] { 4, 4, 8, 8 });
-            lineFrustum.setLineWidth(2);
             lineFrustum.getSceneHints().setLightCombineMode(LightCombineMode.Off);
 
             final BlendState lineBlendState = new BlendState();
@@ -646,7 +654,7 @@ public final class Debugger {
         }
 
         lineFrustum.setDefaultColor(color);
-        lineFrustum.setStipplePattern(pattern);
+        MaterialUtil.autoMaterials(lineFrustum);
 
         extendedCamera.set(camera);
         extendedCamera.calculateFrustum(fNear, fFar);

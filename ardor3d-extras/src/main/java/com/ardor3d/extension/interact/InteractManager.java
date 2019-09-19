@@ -1,15 +1,16 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.interact;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,15 +28,13 @@ import com.ardor3d.input.logical.TwoInputStates;
 import com.ardor3d.renderer.Renderer;
 import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.util.ReadOnlyTimer;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Lists;
 
 public class InteractManager {
 
     /**
      * List of widgets currently managed by this manager.
      */
-    protected final List<AbstractInteractWidget> _widgets = Lists.newArrayList();
+    protected final List<AbstractInteractWidget> _widgets = new ArrayList<>();
 
     /**
      * The logical layer used by this manager to receive input events prior to forwarding them to the scene.
@@ -61,18 +60,28 @@ public class InteractManager {
     /**
      * Spatial state tracking.
      */
-    protected SpatialState _state = new SpatialState();
+    protected final SpatialState _state;
 
     /**
      * List of filters to modify state prior to applying to a Spatial target.
      */
-    protected List<UpdateFilter> _filters = Lists.newArrayList();
+    protected List<UpdateFilter> _filters = new ArrayList<>();
+
+    /** ArrayList of update logic for this manager. */
+    protected List<UpdateLogic> _updateLogic;
 
     public InteractManager() {
+        _state = new SpatialState();
+        setupLogicalLayer();
+    }
+
+    public InteractManager(final SpatialState stateTracking) {
+        _state = stateTracking;
         setupLogicalLayer();
     }
 
     public void update(final ReadOnlyTimer timer) {
+        runUpdateLogic(timer.getTimePerFrame());
         for (final AbstractInteractWidget widget : _widgets) {
             if (!widget.isActiveUpdateOnly() || widget == _activeWidget) {
                 widget.update(timer, this);
@@ -122,15 +131,13 @@ public class InteractManager {
      * Set up our logical layer with a trigger that hands input to the manager and saves whether it was "consumed".
      */
     private void setupLogicalLayer() {
-        _logicalLayer.registerTrigger(new InputTrigger(new Predicate<TwoInputStates>() {
-            public boolean apply(final TwoInputStates arg0) {
-                // always trigger this.
-                return true;
-            }
+        _logicalLayer.registerTrigger(new InputTrigger((final TwoInputStates arg0) -> {
+            // always trigger this.
+            return true;
         }, new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputStates, final double tpf) {
                 if (_spatialTarget != null) {
-                    _state.getTransform().set(_spatialTarget.getTransform());
+                    _state.copyState(_spatialTarget);
                 }
                 _inputConsumed.set(false);
                 offerInputToWidgets(source, inputStates);
@@ -141,7 +148,7 @@ public class InteractManager {
     /**
      * Convenience method for setting up the manager's connection to the Ardor3D input system, along with a forwarding
      * address for input events that the manager does not care about.
-     * 
+     *
      * @param canvas
      *            the canvas to register with
      * @param physicalLayer
@@ -205,7 +212,17 @@ public class InteractManager {
     }
 
     public void setActiveWidget(final AbstractInteractWidget widget) {
+        if (_activeWidget == widget) {
+            return;
+        }
+
+        if (_activeWidget != null) {
+            _activeWidget.lostControl(this);
+        }
         _activeWidget = widget;
+        if (_activeWidget != null) {
+            _activeWidget.receivedControl(this);
+        }
     }
 
     public AbstractInteractWidget getActiveWidget() {
@@ -239,4 +256,70 @@ public class InteractManager {
         return _state;
     }
 
+    public interface UpdateLogic {
+        public void update(double time, InteractManager manager);
+    }
+
+    public void addUpdateLogic(final UpdateLogic logic) {
+        if (_updateLogic == null) {
+            _updateLogic = new ArrayList<UpdateLogic>(1);
+        }
+        _updateLogic.add(logic);
+    }
+
+    public boolean removeUpdateLogic(final UpdateLogic logic) {
+        if (_updateLogic == null) {
+            return false;
+        }
+        return _updateLogic.remove(logic);
+    }
+
+    public UpdateLogic removeUpdateLogic(final int index) {
+        if (_updateLogic == null) {
+            return null;
+        }
+        return _updateLogic.remove(index);
+    }
+
+    public void clearUpdateLogic() {
+        if (_updateLogic != null) {
+            _updateLogic.clear();
+        }
+    }
+
+    public UpdateLogic getUpdateLogic(final int i) {
+        if (_updateLogic == null) {
+            _updateLogic = new ArrayList<UpdateLogic>(1);
+        }
+        return _updateLogic.get(i);
+    }
+
+    public List<UpdateLogic> getUpdateLogic() {
+        if (_updateLogic == null) {
+            _updateLogic = new ArrayList<UpdateLogic>(1);
+        }
+        return _updateLogic;
+    }
+
+    public int getUpdateLogicCount() {
+        if (_updateLogic == null) {
+            return 0;
+        }
+        return _updateLogic.size();
+    }
+
+    public void runUpdateLogic(final double time) {
+        if (_updateLogic != null) {
+            for (int i = 0, gSize = _updateLogic.size(); i < gSize; i++) {
+                try {
+                    final UpdateLogic logic = _updateLogic.get(i);
+                    if (logic != null) {
+                        logic.update(time, this);
+                    }
+                } catch (final IndexOutOfBoundsException e) {
+                    break;
+                }
+            }
+        }
+    }
 }

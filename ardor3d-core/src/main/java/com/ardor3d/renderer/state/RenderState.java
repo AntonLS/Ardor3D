@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.renderer.state;
@@ -24,7 +24,6 @@ import com.ardor3d.util.Constants;
 import com.ardor3d.util.export.InputCapsule;
 import com.ardor3d.util.export.OutputCapsule;
 import com.ardor3d.util.export.Savable;
-import com.google.common.collect.Maps;
 
 /**
  * <code>RenderState</code> is the base class for all states that affect the rendering of a piece of geometry. They
@@ -33,9 +32,8 @@ import com.google.common.collect.Maps;
  */
 public abstract class RenderState implements Savable {
 
-    // XXX: This enum may change, particularly the shader portions
     public enum StateType {
-        Blend, Fog, Light, Material, Shading, Texture, Wireframe, ZBuffer, Cull, VertexProgram, FragmentProgram, Stencil, GLSLShader, ColorMask, Clip, Offset;
+        Blend, Light, Texture, Wireframe, ZBuffer, Cull, Stencil, ColorMask, Offset;
 
         // cached
         public static StateType[] values = values();
@@ -59,34 +57,22 @@ public abstract class RenderState implements Savable {
      * DEFAULTS:
      * <ul>
      * <li>Blend: true</li>
-     * <li>Fog: true</li>
      * <li>Light: false - because you can change a light object directly without telling the state</li>
-     * <li>Material: true</li>
-     * <li>Shading: true</li>
      * <li>Texture: false - because you can change a texture object directly without telling the state</li>
-     * <li>Wireframe: false - because line attributes can change when drawing regular lines, affecting wireframe lines</li>
+     * <li>Wireframe: false - because line attributes can change when drawing regular lines, affecting wireframe
+     * lines</li>
      * <li>ZBuffer: true</li>
      * <li>Cull: true</li>
-     * <li>VertexShader1: true</li>
-     * <li>FragmentShader1: true</li>
      * <li>Stencil: false</li>
-     * <li>GLSLShader: true</li>
      * <li>ColorMask: true</li>
-     * <li>Clip: true</li>
      * <li>Offset: true</li>
      * </ul>
      */
     public static final EnumSet<StateType> _quickCompare = EnumSet.noneOf(StateType.class);
     static {
         _quickCompare.add(StateType.Blend);
-        _quickCompare.add(StateType.Fog);
-        _quickCompare.add(StateType.Material);
-        _quickCompare.add(StateType.Shading);
         _quickCompare.add(StateType.ZBuffer);
         _quickCompare.add(StateType.Cull);
-        _quickCompare.add(StateType.VertexProgram);
-        _quickCompare.add(StateType.FragmentProgram);
-        _quickCompare.add(StateType.GLSLShader);
         _quickCompare.add(StateType.ColorMask);
         _quickCompare.add(StateType.Offset);
     }
@@ -96,10 +82,11 @@ public abstract class RenderState implements Savable {
 
     static public class StateStack implements Poolable {
 
-        private final EnumMap<RenderState.StateType, Stack<RenderState>> stacks = Maps
-                .newEnumMap(RenderState.StateType.class);
+        private final EnumMap<RenderState.StateType, Stack<RenderState>> stacks = new EnumMap<>(
+                RenderState.StateType.class);
 
-        public StateStack() {}
+        public StateStack() {
+        }
 
         public final static StateStack fetchTempInstance() {
             if (Constants.useStatePools) {
@@ -151,7 +138,8 @@ public abstract class RenderState implements Savable {
     /**
      * Constructs a new RenderState. The state is enabled by default.
      */
-    public RenderState() {}
+    public RenderState() {
+    }
 
     /**
      * @return An statetype enum value for the subclass.
@@ -161,7 +149,7 @@ public abstract class RenderState implements Savable {
 
     /**
      * Returns if this render state is enabled during rendering. Disabled states are ignored.
-     * 
+     *
      * @return True if this state is enabled.
      */
     public boolean isEnabled() {
@@ -170,7 +158,7 @@ public abstract class RenderState implements Savable {
 
     /**
      * Sets if this render state is enabled during rendering. Disabled states are ignored.
-     * 
+     *
      * @param value
      *            False if the state is to be disabled, true otherwise.
      */
@@ -183,7 +171,7 @@ public abstract class RenderState implements Savable {
      * Extracts from the stack the correct renderstate that should apply to the given spatial. This is mainly used for
      * RenderStates that can be cumulitive such as TextureState or LightState. By default, the top of the static is
      * returned. This function should not be called by users directly.
-     * 
+     *
      * @param stack
      *            The stack to extract render states from.
      * @param spat
@@ -220,7 +208,7 @@ public abstract class RenderState implements Savable {
 
     /**
      * This should be called by states when it knows internal data has been altered.
-     * 
+     *
      * @param refresh
      *            true if we should apply this state even if we think it is the current state of its type in the current
      *            context.
@@ -244,32 +232,18 @@ public abstract class RenderState implements Savable {
         switch (type) {
             case Blend:
                 return new BlendState();
-            case Clip:
-                return new ClipState();
             case ColorMask:
                 return new ColorMaskState();
             case Cull:
                 return new CullState();
-            case Fog:
-                return new FogState();
-            case FragmentProgram:
-                return new FragmentProgramState();
-            case GLSLShader:
-                return new GLSLShaderObjectsState();
             case Light:
                 return new LightState();
-            case Material:
-                return new MaterialState();
             case Offset:
                 return new OffsetState();
-            case Shading:
-                return new ShadingState();
             case Stencil:
                 return new StencilState();
             case Texture:
                 return new TextureState();
-            case VertexProgram:
-                return new VertexProgramState();
             case Wireframe:
                 return new WireframeState();
             case ZBuffer:

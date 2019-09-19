@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.util;
@@ -13,8 +13,10 @@ package com.ardor3d.extension.ui.util;
 import java.nio.FloatBuffer;
 
 import com.ardor3d.renderer.IndexMode;
+import com.ardor3d.scenegraph.AbstractBufferData.VBOAccessMode;
 import com.ardor3d.scenegraph.FloatBufferData;
 import com.ardor3d.scenegraph.Mesh;
+import com.ardor3d.scenegraph.MeshData;
 import com.ardor3d.util.geom.BufferUtils;
 
 /**
@@ -35,7 +37,7 @@ public class UIQuad extends Mesh {
 
     /**
      * Construct a new 1x1 UI quad with the given name.
-     * 
+     *
      * @param name
      */
     public UIQuad(final String name) {
@@ -44,7 +46,7 @@ public class UIQuad extends Mesh {
 
     /**
      * Construct a new UI quad with the given name and dimensions.
-     * 
+     *
      * @param name
      * @param width
      * @param height
@@ -57,7 +59,7 @@ public class UIQuad extends Mesh {
 
     /**
      * Alter the vertices of this Ui quad so that it of the given size.
-     * 
+     *
      * @param width
      * @param height
      */
@@ -65,20 +67,25 @@ public class UIQuad extends Mesh {
         _width = width;
         _height = height;
 
-        _meshData.getVertexBuffer().clear();
-        _meshData.getVertexBuffer().put(0).put((float) _height);
-        _meshData.getVertexBuffer().put(0).put(0);
-        _meshData.getVertexBuffer().put((float) _width).put(0);
-        _meshData.getVertexBuffer().put((float) _width).put((float) _height);
+        FloatBuffer vertexBuffer = _meshData.getVertexBuffer();
+        vertexBuffer.clear();
+        vertexBuffer.put(0).put((float) _height);
+        vertexBuffer.put(0).put(0);
+        vertexBuffer.put((float) _width).put(0);
+        vertexBuffer.put((float) _width).put((float) _height);
+        _meshData.markBufferDirty(MeshData.KEY_VertexCoords);
     }
 
     /**
      * Set the basic data for this mesh such as texture coordinates, index mode and our vertex buffer.
      */
     private void initialize() {
-        _meshData.setVertexCoords(new FloatBufferData(BufferUtils.createVector2Buffer(4), 2));
+        final FloatBufferData vbuf = new FloatBufferData(BufferUtils.createVector2Buffer(4), 2);
+        vbuf.setVboAccessMode(VBOAccessMode.DynamicDraw);
+        _meshData.setVertexCoords(vbuf);
         final FloatBuffer tbuf = BufferUtils.createVector2Buffer(4);
         _meshData.setTextureBuffer(tbuf, 0);
+        _meshData.getTextureCoords(0).setVboAccessMode(VBOAccessMode.DynamicDraw);
 
         tbuf.put(0).put(1);
         tbuf.put(0).put(0);

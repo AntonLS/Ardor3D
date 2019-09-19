@@ -1,15 +1,16 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.renderer.queue;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.ardor3d.renderer.Renderer;
@@ -18,11 +19,10 @@ import com.ardor3d.scenegraph.Mesh;
 import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.util.Ardor3dException;
 import com.ardor3d.util.Constants;
-import com.google.common.collect.Maps;
 
 public class RenderQueue {
 
-    private final Map<RenderBucketType, RenderBucket> renderBuckets = Maps.newLinkedHashMap();
+    private final Map<RenderBucketType, RenderBucket> renderBuckets = new LinkedHashMap<>();
 
     public RenderQueue() {
         setupDefaultBuckets();
@@ -43,7 +43,7 @@ public class RenderQueue {
         setRenderBucket(RenderBucketType.Shadow, new OpaqueRenderBucket());
         setRenderBucket(RenderBucketType.Opaque, new OpaqueRenderBucket());
         setRenderBucket(RenderBucketType.Transparent, new TransparentRenderBucket());
-        setRenderBucket(RenderBucketType.Ortho, new OrthoRenderBucket());
+        setRenderBucket(RenderBucketType.OrthoOrder, new OrthoOrderRenderBucket());
         setRenderBucket(RenderBucketType.PostBucket, new OpaqueRenderBucket());
     }
 

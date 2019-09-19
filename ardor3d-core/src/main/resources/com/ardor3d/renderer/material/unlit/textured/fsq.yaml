@@ -1,0 +1,16 @@
+--- # textured, full screen quad
+techniques: 
+  passes: 
+      - 
+        attributes:
+          - key: vertex
+          - key: uv0
+
+        shaders: 
+          Vertex: 
+            source: unlit/fsq.vert
+            define: UV_COUNT 1
+            
+          Fragment:
+            source: unlit/unlit_modulate.frag
+            define: UV_COUNT 1

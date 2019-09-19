@@ -1,19 +1,19 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.shadow.map;
 
-import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.ardor3d.bounding.BoundingBox;
@@ -23,7 +23,6 @@ import com.ardor3d.bounding.OrientedBoundingBox;
 import com.ardor3d.image.Texture;
 import com.ardor3d.image.Texture.DepthTextureCompareFunc;
 import com.ardor3d.image.Texture.DepthTextureCompareMode;
-import com.ardor3d.image.Texture.DepthTextureMode;
 import com.ardor3d.image.Texture2D;
 import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.light.DirectionalLight;
@@ -39,40 +38,30 @@ import com.ardor3d.math.type.ReadOnlyMatrix4;
 import com.ardor3d.math.type.ReadOnlyVector3;
 import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.Camera.ProjectionMode;
-import com.ardor3d.renderer.ContextCapabilities;
 import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.IndexMode;
-import com.ardor3d.renderer.RenderLogic;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.TextureRenderer;
-import com.ardor3d.renderer.TextureRendererFactory;
 import com.ardor3d.renderer.pass.Pass;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
-import com.ardor3d.renderer.state.ClipState;
 import com.ardor3d.renderer.state.ColorMaskState;
 import com.ardor3d.renderer.state.CullState;
-import com.ardor3d.renderer.state.CullState.Face;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
 import com.ardor3d.renderer.state.LightState;
 import com.ardor3d.renderer.state.OffsetState;
 import com.ardor3d.renderer.state.OffsetState.OffsetType;
 import com.ardor3d.renderer.state.RenderState;
 import com.ardor3d.renderer.state.RenderState.StateType;
-import com.ardor3d.renderer.state.ShadingState;
-import com.ardor3d.renderer.state.ShadingState.ShadingMode;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.renderer.state.WireframeState;
 import com.ardor3d.renderer.state.ZBufferState;
+import com.ardor3d.renderer.texture.TextureRenderer;
 import com.ardor3d.scenegraph.Line;
 import com.ardor3d.scenegraph.Mesh;
-import com.ardor3d.scenegraph.Renderable;
 import com.ardor3d.scenegraph.Spatial;
+import com.ardor3d.scenegraph.hint.CullHint;
 import com.ardor3d.scenegraph.hint.LightCombineMode;
 import com.ardor3d.scenegraph.shape.Sphere;
 import com.ardor3d.util.geom.BufferUtils;
-import com.ardor3d.util.resource.ResourceLocatorTool;
-import com.google.common.collect.Lists;
 
 /**
  * A pass providing a parallel split shadow mapping (PSSM) layer across the top of an existing scene.
@@ -98,11 +87,11 @@ public class ParallelSplitShadowMapPass extends Pass {
     /** The textures storing the shadow maps. */
     private Texture2D _shadowMapTexture[];
 
-    /** The list of occluding nodes. */
-    private final List<Spatial> _occluderNodes = Lists.newArrayList();
+    /** The list of occluding nodes - filled from ShadowCasterManager. */
+    private final List<Spatial> _occluderNodes = new ArrayList<>();
 
     /** Extra bounds receivers, when rendering shadows other ways than through overlay */
-    private final List<Spatial> _boundsReceiver = Lists.newArrayList();
+    private final List<Spatial> _boundsReceiver = new ArrayList<>();
 
     // Various optimizations for rendering shadow maps...
     /** Culling front faces when rendering shadow maps. */
@@ -114,15 +103,15 @@ public class ParallelSplitShadowMapPass extends Pass {
     /** Turn off lighting when rendering shadow maps. */
     private final LightState _noLights;
 
-    /** set flat shading when rendering shadow maps. */
-    private final ShadingState _flat;
-
     // Important pieces for rendering shadow maps
     /** Turn off colors when rendering shadow maps. */
     private final ColorMaskState _colorDisabled;
 
     /** The state applying the depth offset for the shadow. */
     private final OffsetState _shadowOffsetState;
+
+    /** Apply offset during render pass to avoid z fighting in shadow overlay */
+    private final OffsetState _shadowPassOffsetState;
 
     /**
      * The blending to both discard the fragments that have been determined to be free of shadows and to blend into the
@@ -132,9 +121,6 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /** The state applying the shadow map. */
     private final TextureState _shadowTextureState;
-
-    /** Don't perform any plane clipping when rendering the shadowed scene. */
-    private final ClipState _noClip;
 
     /** True once the pass has been initialized. */
     protected boolean _initialised = false;
@@ -178,14 +164,14 @@ public class ParallelSplitShadowMapPass extends Pass {
     /** Light that casts the shadow. */
     protected Light _light;
 
-    /** Shader for rendering pssm shadows in one pass. */
-    private GLSLShaderObjectsState _pssmShader;
-
-    /** Might need to keep main shader when doing both multitexturing shadows and overlays */
-    private GLSLShaderObjectsState _mainShader;
-
-    /** Shader for debugging pssm shadows drawing splits in different colors. */
-    private GLSLShaderObjectsState _pssmDebugShader;
+//    /** Shader for rendering pssm shadows in one pass. */
+//    private ShaderState _pssmShader;
+//
+//    /** Might need to keep main shader when doing both multitexturing shadows and overlays */
+//    private ShaderState _mainShader;
+//
+//    /** Shader for debugging pssm shadows drawing splits in different colors. */
+//    private ShaderState _pssmDebugShader;
 
     /** Debug for stopping camera update. */
     private boolean _updateMainCamera = true;
@@ -231,7 +217,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Create a pssm shadow map pass casting shadows from a light with the direction given.
-     * 
+     *
      * @param shadowMapSize
      *            The size of the shadow map texture
      * @param numOfSplits
@@ -243,8 +229,6 @@ public class ParallelSplitShadowMapPass extends Pass {
         setNumOfSplits(numOfSplits);
         _pssmCam = new PSSMCamera();
 
-        _noClip = new ClipState();
-        _noClip.setEnabled(false);
         _noTexture = new TextureState();
         _noTexture.setEnabled(false);
         _colorDisabled = new ColorMaskState();
@@ -258,11 +242,14 @@ public class ParallelSplitShadowMapPass extends Pass {
         _shadowOffsetState = new OffsetState();
         _shadowOffsetState.setEnabled(true);
         _shadowOffsetState.setTypeEnabled(OffsetType.Fill, true);
-        _shadowOffsetState.setFactor(1.1f);
-        _shadowOffsetState.setUnits(4.0f);
+        _shadowOffsetState.setFactor(1.0f);
+        _shadowOffsetState.setUnits(1.0f);
 
-        _flat = new ShadingState();
-        _flat.setShadingMode(ShadingMode.Flat);
+        _shadowPassOffsetState = new OffsetState();
+        _shadowPassOffsetState.setEnabled(true);
+        _shadowPassOffsetState.setTypeEnabled(OffsetType.Fill, true);
+        _shadowPassOffsetState.setFactor(-1.0f);
+        _shadowPassOffsetState.setUnits(4.0f);
 
         // When rendering and comparing the shadow map with the current depth, the result will be set to alpha 1 if in
         // shadow and to 0 if not in shadow.
@@ -277,30 +264,8 @@ public class ParallelSplitShadowMapPass extends Pass {
     }
 
     /**
-     * Add a spatial that will occlude light and hence cast a shadow.
-     * 
-     * @param occluder
-     *            The spatial to add as an occluder
-     */
-    public void addOccluder(final Spatial occluder) {
-        if (!_occluderNodes.contains(occluder)) {
-            _occluderNodes.add(occluder);
-        }
-    }
-
-    /**
-     * Remove a spatial from the list of occluders.
-     * 
-     * @param occluder
-     *            The spatial to remove from the occluderlist
-     */
-    public void removeOccluder(final Spatial occluder) {
-        _occluderNodes.remove(occluder);
-    }
-
-    /**
      * Initialize the pass render states.
-     * 
+     *
      * @param r
      *            the r
      */
@@ -314,35 +279,34 @@ public class ParallelSplitShadowMapPass extends Pass {
         // render states to use when rendering into the shadow map, no textures or colors are required since we're only
         // interested in recording depth. Also only need back faces when rendering the shadow maps
 
-        // Load PSSM shader.
-        final ContextCapabilities caps = ContextManager.getCurrentContext().getCapabilities();
-        if (caps.isGLSLSupported()) {
-            _pssmShader = new GLSLShaderObjectsState();
-            try {
-                _pssmShader.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(
-                        ParallelSplitShadowMapPass.class, "com/ardor3d/extension/shadow/map/pssm.vert"));
-                if (filter == Filter.None) {
-                    _pssmShader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(
-                            ParallelSplitShadowMapPass.class, "com/ardor3d/extension/shadow/map/pssm.frag"));
-                } else if (filter == Filter.Pcf) {
-                    _pssmShader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(
-                            ParallelSplitShadowMapPass.class, "com/ardor3d/extension/shadow/map/pssmPCF.frag"));
-                }
-            } catch (final IOException ex) {
-                logger.logp(Level.SEVERE, getClass().getName(), "init(Renderer)", "Could not load shaders.", ex);
-            }
-            _mainShader = _pssmShader;
-
-            _pssmDebugShader = new GLSLShaderObjectsState();
-            try {
-                _pssmDebugShader.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(
-                        ParallelSplitShadowMapPass.class, "com/ardor3d/extension/shadow/map/pssmDebug.vert"));
-                _pssmDebugShader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(
-                        ParallelSplitShadowMapPass.class, "com/ardor3d/extension/shadow/map/pssmDebug.frag"));
-            } catch (final IOException ex) {
-                logger.logp(Level.SEVERE, getClass().getName(), "init(Renderer)", "Could not load shaders.", ex);
-            }
-        }
+//        // Load PSSM shader.
+//        _pssmShader = new ShaderState();
+//        try {
+//            _pssmShader.setShader(ShaderType.Vertex, "pssm", ResourceLocatorTool.getClassPathResourceAsString(
+//                    ParallelSplitShadowMapPass.class, "com/ardor3d/extension/shadow/map/pssm.vert"));
+//            if (filter == Filter.None) {
+//                _pssmShader.setShader(ShaderType.Fragment, "pssm", ResourceLocatorTool.getClassPathResourceAsString(
+//                        ParallelSplitShadowMapPass.class, "com/ardor3d/extension/shadow/map/pssm.frag"));
+//            } else if (filter == Filter.Pcf) {
+//                _pssmShader.setShader(ShaderType.Fragment, "pssmPCF", ResourceLocatorTool.getClassPathResourceAsString(
+//                        ParallelSplitShadowMapPass.class, "com/ardor3d/extension/shadow/map/pssmPCF.frag"));
+//            }
+//        } catch (final IOException ex) {
+//            logger.logp(Level.SEVERE, getClass().getName(), "init(Renderer)", "Could not load shaders.", ex);
+//        }
+//        _mainShader = _pssmShader;
+//
+//        _pssmDebugShader = new ShaderState();
+//        try {
+//            _pssmDebugShader.setShader(ShaderType.Vertex, "pssmDebug", ResourceLocatorTool
+//                    .getClassPathResourceAsString(ParallelSplitShadowMapPass.class,
+//                            "com/ardor3d/extension/shadow/map/pssmDebug.vert"));
+//            _pssmDebugShader.setShader(ShaderType.Fragment, "pssmDebug", ResourceLocatorTool
+//                    .getClassPathResourceAsString(ParallelSplitShadowMapPass.class,
+//                            "com/ardor3d/extension/shadow/map/pssmDebug.frag"));
+//        } catch (final IOException ex) {
+//            logger.logp(Level.SEVERE, getClass().getName(), "init(Renderer)", "Could not load shaders.", ex);
+//        }
 
         // Setup texture renderer.
         reinitTextureSize(r);
@@ -358,7 +322,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Reinit texture size. Sets up texture renderer.
-     * 
+     *
      * @param r
      *            the Renderer
      */
@@ -369,14 +333,11 @@ public class ParallelSplitShadowMapPass extends Pass {
 
         _reinitTextureSizeDirty = false;
 
-        final ContextCapabilities caps = ContextManager.getCurrentContext().getCapabilities();
-
         // Create texture renderer
-        _shadowMapRenderer = TextureRendererFactory.INSTANCE.createTextureRenderer(_shadowMapSize, _shadowMapSize, r,
-                caps);
+        _shadowMapRenderer = r.createTextureRenderer(_shadowMapSize, _shadowMapSize, 24, 0);
 
         // Enforce performance enhancing states on the renderer.
-        _shadowMapRenderer.enforceState(_noClip);
+//        _shadowMapRenderer.enforceState(_noClip);
         _shadowMapRenderer.enforceState(_colorDisabled);
         if (!_useObjectCullFace) {
             _shadowMapRenderer.enforceState(_cullFrontFace);
@@ -384,7 +345,7 @@ public class ParallelSplitShadowMapPass extends Pass {
             _shadowMapRenderer.clearEnforcedState(StateType.Cull);
         }
         _shadowMapRenderer.enforceState(_noLights);
-        _shadowMapRenderer.enforceState(_flat);
+//        _shadowMapRenderer.enforceState(_flat);
         _shadowMapRenderer.enforceState(_shadowOffsetState);
         if (!_useSceneTexturing) {
             _shadowMapRenderer.enforceState(_noTexture);
@@ -393,7 +354,7 @@ public class ParallelSplitShadowMapPass extends Pass {
         }
 
         if (_light instanceof DirectionalLight) {
-            _shadowMapRenderer.getCamera().setProjectionMode(ProjectionMode.Parallel);
+            _shadowMapRenderer.getCamera().setProjectionMode(ProjectionMode.Orthographic);
         }
     }
 
@@ -416,28 +377,27 @@ public class ParallelSplitShadowMapPass extends Pass {
             _shadowMapTexture[i].setMagnificationFilter(Texture.MagnificationFilter.Bilinear);
             _shadowMapTexture[i].setBorderColor(ColorRGBA.WHITE);
 
-            _shadowMapTexture[i].setEnvironmentalMapMode(Texture.EnvironmentalMapMode.EyeLinear);
+            // _shadowMapTexture[i].setEnvironmentalMapMode(Texture.EnvironmentalMapMode.EyeLinear);
 
             _shadowMapTexture[i].setTextureStoreFormat(_shadowTextureStoreFormat);
             _shadowMapTexture[i].setDepthCompareMode(DepthTextureCompareMode.RtoTexture);
             _shadowMapTexture[i].setDepthCompareFunc(DepthTextureCompareFunc.GreaterThanEqual);
-            _shadowMapTexture[i].setDepthMode(DepthTextureMode.Intensity);
 
             _shadowMapRenderer.setupTexture(_shadowMapTexture[i]);
             _shadowTextureState.setTexture(_shadowMapTexture[i], i);
         }
-        if (_pssmShader != null) {
-            for (int i = 0; i < _MAX_SPLITS; i++) {
-                _pssmShader.setUniform("shadowMap" + i, i);
-                _pssmDebugShader.setUniform("shadowMap" + i, i);
-                _mainShader.setUniform("shadowMap" + i, i);
-            }
-        }
+//        if (_pssmShader != null) {
+//            for (int i = 0; i < _MAX_SPLITS; i++) {
+//                _pssmShader.setUniform("shadowMap" + i, i);
+//                _pssmDebugShader.setUniform("shadowMap" + i, i);
+//                _mainShader.setUniform("shadowMap" + i, i);
+//            }
+//        }
     }
 
     /**
      * Render the pass.
-     * 
+     *
      * @param r
      *            the Renderer
      */
@@ -498,8 +458,8 @@ public class ParallelSplitShadowMapPass extends Pass {
                 calculateOptimalLightFrustum(_pssmCam._corners, _pssmCam._center);
 
                 if (_drawDebug) {
-                    boundingSphere
-                            .setData(frustumBoundingSphere.getCenter(), 10, 10, frustumBoundingSphere.getRadius());
+                    boundingSphere.setData(frustumBoundingSphere.getCenter(), 10, 10,
+                            frustumBoundingSphere.getRadius());
                     boundingSphere.draw(r);
                 }
             } else if (_light instanceof PointLight) {
@@ -508,8 +468,8 @@ public class ParallelSplitShadowMapPass extends Pass {
 
             // Debug draw light frustum for current split
             if (_drawDebug) {
-                drawFrustum(r, _shadowMapRenderer.getCamera(), new ColorRGBA(1, 1, (iSplit + 1) / (float) _numOfSplits,
-                        1), (short) 0xFFFF, true);
+                drawFrustum(r, _shadowMapRenderer.getCamera(),
+                        new ColorRGBA(1, 1, (iSplit + 1) / (float) _numOfSplits, 1), (short) 0xFFFF, true);
             }
 
             // Render shadowmap from light view for current split
@@ -523,42 +483,42 @@ public class ParallelSplitShadowMapPass extends Pass {
     }
 
     private void updateShaderVariables() {
-        if (_pssmShader != null && ContextManager.getCurrentContext().getCapabilities().isGLSLSupported()) {
-            final float split1 = (float) _pssmCam.getSplitDistances()[1];
-            final float split2 = (float) (_pssmCam.getSplitDistances().length > 2 ? _pssmCam.getSplitDistances()[2]
-                    : 0f);
-            final float split3 = (float) (_pssmCam.getSplitDistances().length > 3 ? _pssmCam.getSplitDistances()[3]
-                    : 0f);
-            final float split4 = (float) (_pssmCam.getSplitDistances().length > 4 ? _pssmCam.getSplitDistances()[4]
-                    : 0f);
-
-            GLSLShaderObjectsState currentShader = _drawShaderDebug ? _pssmDebugShader : _pssmShader;
-            if (_drawShaderDebug) {
-                currentShader = _pssmDebugShader;
-            }
-
-            currentShader.setUniform("sampleDist", split1, split2, split3, split4);
-            if (filter == Filter.Pcf) {
-                // TODO
-                // currentShader.setUniform("_shadowSize", 1f / _shadowMapSize);
-            }
-
-            if (!_drawShaderDebug) {
-                currentShader.setUniform("shadowColor", _shadowColor);
-            }
-
-            if (_keepMainShader) {
-                _mainShader.setUniform("sampleDist", split1, split2, split3, split4);
-                if (filter == Filter.Pcf) {
-                    // TODO
-                    // _mainShader.setUniform("_shadowSize", 1f / _shadowMapSize);
-                }
-
-                if (!_drawShaderDebug) {
-                    _mainShader.setUniform("shadowColor", _shadowColor);
-                }
-            }
-        }
+//        if (_pssmShader != null) {
+//            final float split1 = (float) _pssmCam.getSplitDistances()[1];
+//            final float split2 = (float) (_pssmCam.getSplitDistances().length > 2 ? _pssmCam.getSplitDistances()[2]
+//                    : 0f);
+//            final float split3 = (float) (_pssmCam.getSplitDistances().length > 3 ? _pssmCam.getSplitDistances()[3]
+//                    : 0f);
+//            final float split4 = (float) (_pssmCam.getSplitDistances().length > 4 ? _pssmCam.getSplitDistances()[4]
+//                    : 0f);
+//
+//            ShaderState currentShader = _drawShaderDebug ? _pssmDebugShader : _pssmShader;
+//            if (_drawShaderDebug) {
+//                currentShader = _pssmDebugShader;
+//            }
+//
+//            currentShader.setUniform("sampleDist", split1, split2, split3, split4);
+//            if (filter == Filter.Pcf) {
+//                // TODO
+//                // currentShader.setUniform("_shadowSize", 1f / _shadowMapSize);
+//            }
+//
+//            if (!_drawShaderDebug) {
+//                currentShader.setUniform("shadowColor", _shadowColor);
+//            }
+//
+//            if (_keepMainShader) {
+//                _mainShader.setUniform("sampleDist", split1, split2, split3, split4);
+//                if (filter == Filter.Pcf) {
+//                    // TODO
+//                    // _mainShader.setUniform("_shadowSize", 1f / _shadowMapSize);
+//                }
+//
+//                if (!_drawShaderDebug) {
+//                    _mainShader.setUniform("shadowColor", _shadowColor);
+//                }
+//            }
+//        }
     }
 
     // TODO
@@ -567,7 +527,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Calculate optimal light frustum perspective.
-     * 
+     *
      * @param frustumCorners
      *            the frustum corners
      * @param center
@@ -637,7 +597,7 @@ public class ParallelSplitShadowMapPass extends Pass {
     /**
      * Saving this around until we fully support a good solution for non-directional lights. Like dual paraboloid shadow
      * maps...
-     * 
+     *
      * @param frustumCorners
      * @param center
      */
@@ -720,7 +680,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Render the overlay scene with shadows.
-     * 
+     *
      * @param r
      *            The renderer to use
      */
@@ -734,17 +694,18 @@ public class ParallelSplitShadowMapPass extends Pass {
         _context.pushEnforcedStates();
         _context.enforceState(_shadowTextureState);
         _context.enforceState(_discardShadowFragments);
+        _context.enforceState(_shadowPassOffsetState);
 
-        if (_pssmShader != null && _context.getCapabilities().isGLSLSupported()) {
-            GLSLShaderObjectsState currentShader = _drawShaderDebug ? _pssmDebugShader : _pssmShader;
-            if (_drawShaderDebug) {
-                currentShader = _pssmDebugShader;
-            }
-            if (_keepMainShader) {
-                currentShader = _mainShader;
-            }
-            _context.enforceState(currentShader);
-        }
+//        if (_pssmShader != null) {
+//            ShaderState currentShader = _drawShaderDebug ? _pssmDebugShader : _pssmShader;
+//            if (_drawShaderDebug) {
+//                currentShader = _pssmDebugShader;
+//            }
+//            if (_keepMainShader) {
+//                currentShader = _mainShader;
+//            }
+//            _context.enforceState(currentShader);
+//        }
 
         for (final Spatial spat : _spatials) {
             spat.onDraw(r);
@@ -758,46 +719,46 @@ public class ParallelSplitShadowMapPass extends Pass {
         }
     }
 
-    private static RenderLogic logic = new RenderLogic() {
-        private CullState cullState;
-        private Face cullFace;
-        private boolean isVisible;
-
-        public void apply(final Renderable renderable) {
-            if (renderable instanceof Mesh) {
-                final Mesh mesh = (Mesh) renderable;
-
-                isVisible = mesh.isVisible();
-                if (!mesh.getSceneHints().isCastsShadows()) {
-                    mesh.setVisible(false);
-                }
-
-                cullState = (CullState) mesh.getWorldRenderState(StateType.Cull);
-                if (cullState != null) {
-                    cullFace = cullState.getCullFace();
-                    if (cullFace != Face.None) {
-                        cullState.setCullFace(Face.Front);
-                    }
-                }
-            }
-        }
-
-        public void restore(final Renderable renderable) {
-            if (renderable instanceof Mesh) {
-                final Mesh mesh = (Mesh) renderable;
-
-                mesh.setVisible(isVisible);
-
-                if (cullState != null) {
-                    cullState.setCullFace(cullFace);
-                }
-            }
-        }
-    };
+//    private static RenderLogic logic = new RenderLogic() {
+//        private CullState cullState;
+//        private Face cullFace;
+//        private boolean isVisible;
+//
+//        public void apply(final Renderable renderable) {
+//            if (renderable instanceof Mesh) {
+//                final Mesh mesh = (Mesh) renderable;
+//
+//                isVisible = mesh.isVisible();
+//                if (!mesh.getSceneHints().isCastsShadows()) {
+//                    mesh.setVisible(false);
+//                }
+//
+//                cullState = (CullState) mesh.getWorldRenderState(StateType.Cull);
+//                if (cullState != null) {
+//                    cullFace = cullState.getCullFace();
+//                    if (cullFace != Face.None) {
+//                        cullState.setCullFace(Face.Front);
+//                    }
+//                }
+//            }
+//        }
+//
+//        public void restore(final Renderable renderable) {
+//            if (renderable instanceof Mesh) {
+//                final Mesh mesh = (Mesh) renderable;
+//
+//                mesh.setVisible(isVisible);
+//
+//                if (cullState != null) {
+//                    cullState.setCullFace(cullFace);
+//                }
+//            }
+//        }
+//    };
 
     /**
      * Update the shadow map.
-     * 
+     *
      * @param index
      *            shadow map texture index to update
      */
@@ -807,35 +768,42 @@ public class ParallelSplitShadowMapPass extends Pass {
             shadowRenderCallback.onRender(index, r, this, _shadowMapRenderer.getCamera());
         }
 
-        r.setRenderLogic(logic);
+//        r.setRenderLogic(logic);
         if (!_useSceneTexturing) {
             Mesh.RENDER_VERTEX_ONLY = true;
         }
-        _shadowMapRenderer.render(_occluderNodes, _shadowMapTexture[index], Renderer.BUFFER_COLOR_AND_DEPTH);
+        _occluderNodes.clear();
+        for (final WeakReference<Spatial> ref : ShadowCasterManager.INSTANCE.getSpatialRefs()) {
+            final Spatial spat = ref.get();
+            if (spat != null) {
+                _occluderNodes.add(spat);
+            }
+        }
+        _shadowMapRenderer.renderSpatials(_occluderNodes, _shadowMapTexture[index], Renderer.BUFFER_COLOR_AND_DEPTH);
         if (!_useSceneTexturing) {
             Mesh.RENDER_VERTEX_ONLY = false;
         }
-        r.setRenderLogic(null);
+//        r.setRenderLogic(null);
     }
 
     /**
      * Update texture matrix.
-     * 
+     *
      * @param index
      *            the index
      */
     private void updateTextureMatrix(final int index) {
         // Create a matrix going from light to camera space
         final Camera cam = ContextManager.getCurrentContext().getCurrentCamera();
-        _shadowMatrix.set(cam.getModelViewMatrix()).invertLocal();
-        _shadowMatrix.multiplyLocal(_shadowMapRenderer.getCamera().getModelViewProjectionMatrix()).multiplyLocal(
-                SCALE_BIAS_MATRIX);
-        _shadowMapTexture[index].setTextureMatrix(_shadowMatrix);
+        _shadowMatrix.set(cam.getViewMatrix()).invertLocal();
+        _shadowMatrix.multiplyLocal(_shadowMapRenderer.getCamera().getModelViewProjectionMatrix())
+                .multiplyLocal(SCALE_BIAS_MATRIX);
+//        _shadowMapTexture[index].setTextureMatrix(_shadowMatrix);
     }
 
     /**
      * Checks if this pass is initialized.
-     * 
+     *
      * @return true, if is initialized
      */
     public boolean isInitialised() {
@@ -843,11 +811,19 @@ public class ParallelSplitShadowMapPass extends Pass {
     }
 
     /**
-     * 
+     *
      * @return the offset state used for drawing the shadow textures.
      */
     public OffsetState getShadowOffsetState() {
         return _shadowOffsetState;
+    }
+
+    /**
+     *
+     * @return the offset state used when drawing the shadow overlay pass.
+     */
+    public OffsetState getShadowPassOffsetState() {
+        return _shadowPassOffsetState;
     }
 
     /**
@@ -859,7 +835,8 @@ public class ParallelSplitShadowMapPass extends Pass {
 
         for (int i = 0, cSize = _boundsReceiver.size(); i < cSize; i++) {
             final Spatial child = _boundsReceiver.get(i);
-            if (child != null && child.getWorldBound() != null && boundIsValid(child.getWorldBound())) {
+            if (child != null && child.getSceneHints().getCullHint() != CullHint.Always && child.getWorldBound() != null
+                    && boundIsValid(child.getWorldBound())) {
                 if (firstRun) {
                     _receiverBounds.setCenter(child.getWorldBound().getCenter());
                     _receiverBounds.setXExtent(0);
@@ -874,7 +851,8 @@ public class ParallelSplitShadowMapPass extends Pass {
 
         for (int i = 0, cSize = _spatials.size(); i < cSize; i++) {
             final Spatial child = _spatials.get(i);
-            if (child != null && child.getWorldBound() != null && boundIsValid(child.getWorldBound())) {
+            if (child != null && child.getSceneHints().getCullHint() != CullHint.Always && child.getWorldBound() != null
+                    && boundIsValid(child.getWorldBound())) {
                 if (firstRun) {
                     _receiverBounds.setCenter(child.getWorldBound().getCenter());
                     _receiverBounds.setXExtent(0);
@@ -890,7 +868,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Checks if a bounding volume is valid.
-     * 
+     *
      * @param volume
      * @return
      */
@@ -923,10 +901,10 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Gets the shadow map texture.
-     * 
+     *
      * @param index
      *            the index
-     * 
+     *
      * @return the shadow map texture
      */
     public Texture2D getShadowMapTexture(final int index) {
@@ -935,7 +913,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Gets the number of splits.
-     * 
+     *
      * @return the number of splits
      */
     public int getNumOfSplits() {
@@ -945,7 +923,7 @@ public class ParallelSplitShadowMapPass extends Pass {
     /**
      * Sets the number of frustum splits and thus the number of shadow textures created by this pass. More splits
      * creates crisper shadows at the cost of increased texture memory.
-     * 
+     *
      * @param numOfSplits
      *            the new number of splits
      */
@@ -961,7 +939,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Gets the shadow map size.
-     * 
+     *
      * @return the shadow map size
      */
     public int getShadowMapSize() {
@@ -970,7 +948,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Sets the shadow map size.
-     * 
+     *
      * @param shadowMapSize
      *            the new shadow map size
      */
@@ -982,7 +960,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Gets the maximum distance for shadowing.
-     * 
+     *
      * @return max distance
      * @see com.ardor3d.extension.shadow.map.PSSMCamera#getMaxFarPlaneDistance()
      */
@@ -992,7 +970,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Sets the maximum distance for shadowing.
-     * 
+     *
      * @param maxShadowDistance
      *            distance to set
      * @see com.ardor3d.extension.shadow.map.PSSMCamera#setMaxFarPlaneDistance(double)
@@ -1003,7 +981,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Gets the minimum z distance for the light.
-     * 
+     *
      * @return the minimumLightDistance
      */
     public double getMinimumLightDistance() {
@@ -1012,7 +990,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Sets the minimum z distance for the light.
-     * 
+     *
      * @param minimumLightDistance
      *            the minimumLightDistance to set
      */
@@ -1022,7 +1000,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Gets shadow color and transparency.
-     * 
+     *
      * @return the shadowColor
      */
     public ReadOnlyColorRGBA getShadowColor() {
@@ -1031,7 +1009,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Sets shadow color and transparency.
-     * 
+     *
      * @param shadowColor
      *            the shadowColor to set
      */
@@ -1049,7 +1027,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Clean up.
-     * 
+     *
      * @see com.ardor3d.renderer.pass.Pass#cleanUp()
      */
     @Override
@@ -1071,7 +1049,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Simple clamp.
-     * 
+     *
      * @param val
      *            value to clamp
      * @param from
@@ -1228,7 +1206,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Draw debug frustum.
-     * 
+     *
      * @param r
      *            the r
      * @param cam
@@ -1245,7 +1223,7 @@ public class ParallelSplitShadowMapPass extends Pass {
 
     /**
      * Draw debug frustum.
-     * 
+     *
      * @param r
      *            the r
      * @param cam
@@ -1269,7 +1247,6 @@ public class ParallelSplitShadowMapPass extends Pass {
             lineFrustum.getMeshData().setIndexModes(
                     new IndexMode[] { IndexMode.LineLoop, IndexMode.LineLoop, IndexMode.Lines, IndexMode.Lines });
             lineFrustum.getMeshData().setIndexLengths(new int[] { 4, 4, 8, 8 });
-            lineFrustum.setLineWidth(2);
             lineFrustum.getSceneHints().setLightCombineMode(LightCombineMode.Off);
 
             final BlendState lineBlendState = new BlendState();
@@ -1288,7 +1265,6 @@ public class ParallelSplitShadowMapPass extends Pass {
         }
 
         lineFrustum.setDefaultColor(color);
-        lineFrustum.setStipplePattern(pattern);
 
         testCam.set(cam);
         testCam.update();
@@ -1339,9 +1315,9 @@ public class ParallelSplitShadowMapPass extends Pass {
         lineFrustum.draw(r);
     }
 
-    public void setPssmShader(final GLSLShaderObjectsState pssmShader) {
-        _pssmShader = pssmShader;
-    }
+//    public void setPssmShader(final ShaderState pssmShader) {
+//        _pssmShader = pssmShader;
+//    }
 
     public boolean isKeepMainShader() {
         return _keepMainShader;

@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.ui;
@@ -22,14 +22,11 @@ import com.ardor3d.extension.ui.UIFrame;
 import com.ardor3d.extension.ui.UIHud;
 import com.ardor3d.extension.ui.UILabel;
 import com.ardor3d.extension.ui.UIPanel;
-import com.ardor3d.extension.ui.UIPasswordField;
 import com.ardor3d.extension.ui.UIProgressBar;
 import com.ardor3d.extension.ui.UIRadioButton;
 import com.ardor3d.extension.ui.UIScrollPanel;
 import com.ardor3d.extension.ui.UISlider;
 import com.ardor3d.extension.ui.UITabbedPane;
-import com.ardor3d.extension.ui.UITextArea;
-import com.ardor3d.extension.ui.UITextField;
 import com.ardor3d.extension.ui.UITabbedPane.TabPlacement;
 import com.ardor3d.extension.ui.backdrop.MultiImageBackdrop;
 import com.ardor3d.extension.ui.event.ActionEvent;
@@ -39,8 +36,13 @@ import com.ardor3d.extension.ui.layout.BorderLayout;
 import com.ardor3d.extension.ui.layout.BorderLayoutData;
 import com.ardor3d.extension.ui.layout.GridLayout;
 import com.ardor3d.extension.ui.layout.GridLayoutData;
+import com.ardor3d.extension.ui.layout.RectLayout;
+import com.ardor3d.extension.ui.layout.RectLayoutData;
 import com.ardor3d.extension.ui.layout.RowLayout;
 import com.ardor3d.extension.ui.model.DefaultComboBoxModel;
+import com.ardor3d.extension.ui.text.UIPasswordField;
+import com.ardor3d.extension.ui.text.UITextArea;
+import com.ardor3d.extension.ui.text.UITextField;
 import com.ardor3d.extension.ui.util.Alignment;
 import com.ardor3d.extension.ui.util.ButtonGroup;
 import com.ardor3d.extension.ui.util.Dimension;
@@ -65,8 +67,8 @@ import com.ardor3d.util.TextureManager;
  * Illustrates how to display GUI primitives (e.g. RadioButton, Label, TabbedPane) on a canvas.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.ui.SimpleUIExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/ui_SimpleUIExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/ui_SimpleUIExample.jpg", //
+        maxHeapMemory = 64)
 public class SimpleUIExample extends ExampleBase {
     UIHud hud;
     private UIFrame frame;
@@ -85,6 +87,7 @@ public class SimpleUIExample extends ExampleBase {
         final Box box = new Box("Box", new Vector3(0, 0, 0), 5, 5, 5);
         box.setModelBound(new BoundingBox());
         box.setTranslation(new Vector3(0, 0, -15));
+        box.setRenderMaterial("unlit/textured/basic.yaml");
         box.addController(new SpatialController<Box>() {
             private final Matrix3 rotate = new Matrix3();
             private double angle = 0;
@@ -116,22 +119,22 @@ public class SimpleUIExample extends ExampleBase {
 
         final UIPanel panel5 = makeScrollPanel();
 
+        final UIPanel panel6 = makeSimpleRectLayout();
+
         final UITabbedPane pane = new UITabbedPane(TabPlacement.NORTH);
         pane.add(panel, "widgets");
         pane.add(panel2, "grid");
         pane.add(panel3, "chat");
         pane.add(panel4, "clock");
         pane.add(panel5, "picture");
+        pane.add(panel6, "rect1");
 
         frame = new UIFrame("UI Sample");
         frame.setContentPanel(pane);
-        frame.updateMinimumSizeFromContents();
-        frame.layout();
         frame.pack();
 
         frame.setUseStandin(true);
         frame.setOpacity(1f);
-        frame.setLocationRelativeTo(_canvas.getCanvasRenderer().getCamera());
         frame.setName("sample");
 
         // Uncomment #1...
@@ -152,10 +155,12 @@ public class SimpleUIExample extends ExampleBase {
         // }
         // });
 
-        hud = new UIHud();
+        hud = new UIHud(_canvas);
         hud.add(frame);
-        hud.setupInput(_canvas, _physicalLayer, _logicalLayer);
+        hud.setupInput(_physicalLayer, _logicalLayer);
         hud.setMouseManager(_mouseManager);
+
+        frame.centerOn(hud);
     }
 
     private UIPanel makeLoginPanel() {
@@ -203,7 +208,7 @@ public class SimpleUIExample extends ExampleBase {
 
         final ActionListener actionListener = new ActionListener() {
             public void actionPerformed(final ActionEvent event) {
-                applyChat(historyArea, chatField);
+                applyChat(historyArea, chatField, scrollArea);
             }
         };
         chatButton.addActionListener(actionListener);
@@ -218,11 +223,13 @@ public class SimpleUIExample extends ExampleBase {
         return chatPanel;
     }
 
-    private void applyChat(final UITextArea historyArea, final UITextField chatField) {
-        final String text = chatField.getText();
-        if (text.length() > 0) {
-            historyArea.setText(historyArea.getText() + "\n" + text);
+    private void applyChat(final UITextArea historyArea, final UITextField chatField, final UIScrollPanel scrollArea) {
+        final String text = chatField.getRawText();
+        if (text != null && text.length() > 0) {
+            final String oldText = historyArea.getRawText() != null ? historyArea.getRawText() + "\n" : "";
+            historyArea.setText(oldText + text);
             chatField.setText("");
+            scrollArea.layout();
         }
     }
 
@@ -352,6 +359,20 @@ public class SimpleUIExample extends ExampleBase {
         comp.setIcon(new SubTex(tex));
         comp.updateIconDimensionsFromIcon();
         final UIScrollPanel panel = new UIScrollPanel(comp);
+        return panel;
+    }
+
+    private UIPanel makeSimpleRectLayout() {
+        final UIPanel panel = new UIPanel(new RectLayout());
+
+        final UIButton okButton = new UIButton("OK!");
+        okButton.setLayoutData(RectLayoutData.pinCenter(200, 50, 105, 0));
+        panel.add(okButton);
+
+        final UIButton cancelButton = new UIButton("Cancel");
+        cancelButton.setLayoutData(RectLayoutData.pinCenter(200, 50, -105, 0));
+        panel.add(cancelButton);
+
         return panel;
     }
 

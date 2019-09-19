@@ -1,21 +1,21 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.input.logical;
 
 import java.util.EnumMap;
+import java.util.function.Predicate;
 
-import com.ardor3d.input.ButtonState;
-import com.ardor3d.input.MouseButton;
+import com.ardor3d.input.mouse.ButtonState;
+import com.ardor3d.input.mouse.MouseButton;
 import com.ardor3d.util.Timer;
-import com.google.common.base.Predicate;
 
 /**
  * Utility methods for getting standard TriggerConditions. To reduce object creation, it may be a good idea to use
@@ -28,18 +28,12 @@ public final class TriggerConditions {
     private static final MouseButtonCondition MIDDLE_DOWN_CONDITION = makeCondition(MouseButton.MIDDLE,
             ButtonState.DOWN);
 
-    private static final Predicate<TwoInputStates> ALWAYS_TRUE = new Predicate<TwoInputStates>() {
-        @Override
-        public boolean apply(final TwoInputStates arg0) {
-            return true;
-        }
+    private static final Predicate<TwoInputStates> ALWAYS_TRUE = (final TwoInputStates arg0) -> {
+        return true;
     };
 
-    private static final Predicate<TwoInputStates> ALWAYS_FALSE = new Predicate<TwoInputStates>() {
-        @Override
-        public boolean apply(final TwoInputStates arg0) {
-            return true;
-        }
+    private static final Predicate<TwoInputStates> ALWAYS_FALSE = (final TwoInputStates arg0) -> {
+        return false;
     };
 
     private static MouseButtonCondition makeCondition(final MouseButton button, final ButtonState state) {
@@ -63,7 +57,7 @@ public final class TriggerConditions {
     }
 
     /**
-     * 
+     *
      * @return a condition that is true if the left button is down
      */
     public static MouseButtonCondition leftButtonDown() {
@@ -71,7 +65,7 @@ public final class TriggerConditions {
     }
 
     /**
-     * 
+     *
      * @return a condition that is true if the right button is down
      */
     public static MouseButtonCondition rightButtonDown() {
@@ -79,7 +73,7 @@ public final class TriggerConditions {
     }
 
     /**
-     * 
+     *
      * @return a condition that is true if the middle button is down
      */
     public static MouseButtonCondition middleButtonDown() {
@@ -101,14 +95,14 @@ public final class TriggerConditions {
     }
 
     /**
-     * @return a condition that is always false.
+     * @return a condition that is true only every throttleTime seconds.
      */
     public static Predicate<TwoInputStates> passedThrottle(final double throttleTime, final Timer timer) {
         return new Predicate<TwoInputStates>() {
             private double lastPass = 0;
 
             @Override
-            public boolean apply(final TwoInputStates arg0) {
+            public boolean test(final TwoInputStates arg0) {
                 final double now = timer.getTimeInSeconds();
                 if (now - lastPass >= throttleTime) {
                     lastPass = now;

@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.renderer;
@@ -21,8 +21,6 @@ import com.ardor3d.renderer.DrawBufferTarget;
 import com.ardor3d.renderer.Renderer;
 import com.ardor3d.renderer.StereoCamera;
 import com.ardor3d.renderer.state.ColorMaskState;
-import com.ardor3d.renderer.state.MaterialState;
-import com.ardor3d.renderer.state.MaterialState.ColorMaterial;
 import com.ardor3d.renderer.state.RenderState.StateType;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.scenegraph.Mesh;
@@ -36,8 +34,8 @@ import com.ardor3d.util.TextureManager;
  * Illustrates the StereoCamera class, which allows for your stereo viewing pleasures.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.renderer.StereoExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/renderer_StereoExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/renderer_StereoExample.jpg", //
+        maxHeapMemory = 64)
 public class StereoExample extends ExampleBase {
 
     private StereoCamera _camera;
@@ -46,12 +44,12 @@ public class StereoExample extends ExampleBase {
     /**
      * Change this to true to use side-by-side rendering. false will turn on left/right buffer swapping.
      */
-    private static final boolean _sideBySide = false;
+    public static boolean _sideBySide = false;
 
     /**
      * Change this to true to use anaglyph style (red/cyan) 3d. False will do hardware based 3d.
      */
-    private static final boolean _useAnaglyph = true;
+    public static boolean _useAnaglyph = true;
 
     public static void main(final String[] args) {
         _stereo = !_sideBySide && !_useAnaglyph;
@@ -107,10 +105,6 @@ public class StereoExample extends ExampleBase {
         ts.setEnabled(true);
         ts.setTexture(TextureManager.load("images/ardor3d_white_256.jpg", Texture.MinificationFilter.Trilinear, true));
         _root.setRenderState(ts);
-
-        final MaterialState ms = new MaterialState();
-        ms.setColorMaterial(ColorMaterial.Diffuse);
-        _root.setRenderState(ms);
 
         _root.setTranslation(0, -1, 0);
     }
@@ -168,6 +162,6 @@ public class StereoExample extends ExampleBase {
 
     @Override
     protected void renderDebug(final Renderer renderer) {
-    // ignore. We'll call super on the individual left/right renderings.
+        // ignore. We'll call super on the individual left/right renderings.
     }
 }

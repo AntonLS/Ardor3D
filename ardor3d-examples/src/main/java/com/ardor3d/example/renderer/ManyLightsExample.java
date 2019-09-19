@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.renderer;
@@ -30,8 +30,8 @@ import com.ardor3d.util.ReadOnlyTimer;
  * A demonstration of randomly placed spheres being illuminated by numerious PointLight sources.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.renderer.ManyLightsExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/renderer_ManyLightsExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/renderer_ManyLightsExample.jpg", //
+        maxHeapMemory = 64)
 public class ManyLightsExample extends ExampleBase {
     private final Random rand = new Random();
     private Node colornode;
@@ -48,7 +48,7 @@ public class ManyLightsExample extends ExampleBase {
 
     /**
      * Create a randomly positioned light and lightsphere with a controller
-     * 
+     *
      * @param i
      *            Index of the light
      */
@@ -64,7 +64,6 @@ public class ManyLightsExample extends ExampleBase {
 
         // Create a new point light and fill out the properties
         final PointLight pointLight = new PointLight();
-        pointLight.setAttenuate(true);
         pointLight.setConstant(.01f);
         pointLight.setLinear(.001f);
         pointLight.setQuadratic(.1f);
@@ -101,7 +100,7 @@ public class ManyLightsExample extends ExampleBase {
 
     /**
      * Create a random sphere to be affected by the light
-     * 
+     *
      * @param i
      *            Index of the sphere
      */
@@ -109,8 +108,8 @@ public class ManyLightsExample extends ExampleBase {
         // Crate a sphere and position it.
         final Sphere sphere = new Sphere("sphere" + i, 18, 18, MathUtils.nextRandomDouble() * 1.75 + 1.25);
         sphere.updateModelBound();
-        sphere.setTranslation(new Vector3(rand.nextDouble() * worldsize * 2 - worldsize, rand.nextDouble() * worldsize
-                * 2 - worldsize, rand.nextDouble() * worldsize * 2 - worldsize));
+        sphere.setTranslation(new Vector3(rand.nextDouble() * worldsize * 2 - worldsize,
+                rand.nextDouble() * worldsize * 2 - worldsize, rand.nextDouble() * worldsize * 2 - worldsize));
 
         _root.attachChild(sphere);
     }
@@ -118,8 +117,6 @@ public class ManyLightsExample extends ExampleBase {
     @Override
     protected void initExample() {
         _lightState.detachAll();
-        _lightState.setTwoSidedLighting(true);
-        _lightState.setLocalViewer(true);
 
         rand.setSeed(1337);
 

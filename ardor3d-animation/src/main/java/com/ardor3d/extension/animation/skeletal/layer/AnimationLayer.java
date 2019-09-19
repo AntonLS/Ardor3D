@@ -1,15 +1,16 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.animation.skeletal.layer;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -19,7 +20,6 @@ import com.ardor3d.extension.animation.skeletal.state.AbstractFiniteState;
 import com.ardor3d.extension.animation.skeletal.state.AbstractTransitionState;
 import com.ardor3d.extension.animation.skeletal.state.StateOwner;
 import com.ardor3d.extension.animation.skeletal.state.SteadyState;
-import com.google.common.collect.Maps;
 
 /**
  * Animation layers are essentially independent state machines, managed by a single AnimationManager. Each maintains a
@@ -36,7 +36,7 @@ public class AnimationLayer implements StateOwner {
     private static final Logger logger = Logger.getLogger(AnimationLayer.class.getName());
 
     /** Our animation states */
-    private final Map<String, SteadyState> _steadyStates = Maps.newHashMap();
+    private final Map<String, SteadyState> _steadyStates = new HashMap<>();
 
     /** Our current animation state */
     private AbstractFiniteState _currentState;
@@ -51,7 +51,7 @@ public class AnimationLayer implements StateOwner {
     private final String _name;
 
     /** A map of general transitions for moving from the current state to another. */
-    private final Map<String, AbstractTransitionState> _transitions = Maps.newHashMap();
+    private final Map<String, AbstractTransitionState> _transitions = new HashMap<>();
 
     /**
      * Construct a new AnimationLayer.

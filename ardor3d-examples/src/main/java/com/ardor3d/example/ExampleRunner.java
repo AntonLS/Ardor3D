@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example;
@@ -29,6 +29,7 @@ import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLDecoder;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
@@ -84,7 +85,6 @@ import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
 import com.ardor3d.util.resource.ResourceLocatorTool;
-import com.google.common.collect.Lists;
 
 /**
  * starter for Ardor3D examples
@@ -438,7 +438,7 @@ public class ExampleRunner extends JFrame {
                     final Class<?> clazz = (Class<?>) selected;
 
                     final boolean isWindows = System.getProperty("os.name").contains("Windows");
-                    final List<String> args = Lists.newArrayList();
+                    final List<String> args = new ArrayList<>();
                     args.add(isWindows ? "javaw" : "java");
                     args.add("-Xmx" + maxHeapMemory + "M");
                     args.add("-cp");

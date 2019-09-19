@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.scenegraph.shape;
@@ -25,7 +25,7 @@ import com.ardor3d.util.geom.BufferUtils;
  * <code>Box</code> is an axis-aligned rectangular prism defined by a center point and x, y, and z extents from that
  * center (essentially radii.)
  */
-public class Box extends Mesh {
+public class Box extends Mesh implements Cloneable {
 
     private double _xExtent, _yExtent, _zExtent;
 
@@ -40,7 +40,7 @@ public class Box extends Mesh {
 
     /**
      * Constructs a new 1x1x1 <code>Box</code> with the given name.
-     * 
+     *
      * @param name
      *            the name to give this new box. This is required for identification and comparison purposes.
      */
@@ -52,7 +52,7 @@ public class Box extends Mesh {
     /**
      * Constructs a new <code>Box</code> object using the given two points as opposite corners of the box. These two
      * points may be in any order.
-     * 
+     *
      * @param name
      *            the name to give this new box. This is required for identification and comparison purposes.
      * @param pntA
@@ -68,7 +68,7 @@ public class Box extends Mesh {
     /**
      * Constructs a new <code>Box</code> object using the given center and extents. Since the extents represent the
      * distance from the center of the box to the edge, the full length of a side is actually 2 * extent.
-     * 
+     *
      * @param name
      *            the name to give this new box. This is required for identification and comparison purposes.
      * @param center
@@ -117,7 +117,7 @@ public class Box extends Mesh {
     /**
      * Updates the center point and extents of this box to match an axis-aligned box defined by the two given opposite
      * corners.
-     * 
+     *
      * @param pntA
      *            the first point
      * @param pntB
@@ -134,7 +134,7 @@ public class Box extends Mesh {
 
     /**
      * Updates the center point and extents of this box using the defined values.
-     * 
+     *
      * @param center
      *            The center of the box.
      * @param xExtent
@@ -144,7 +144,8 @@ public class Box extends Mesh {
      * @param zExtent
      *            z extent of the box
      */
-    public void setData(final ReadOnlyVector3 center, final double xExtent, final double yExtent, final double zExtent) {
+    public void setData(final ReadOnlyVector3 center, final double xExtent, final double yExtent,
+            final double zExtent) {
         if (center != null) {
             _center.set(center);
         }
@@ -271,7 +272,7 @@ public class Box extends Mesh {
      * box.
      */
     private void setIndexData() {
-        if (_meshData.getIndices() == null) {
+        if (_meshData.getIndexBuffer() == null) {
             final byte[] indices = { 2, 1, 0, 3, 2, 0, 6, 5, 4, 7, 6, 4, 10, 9, 8, 11, 10, 8, 14, 13, 12, 15, 14, 12,
                     18, 17, 16, 19, 18, 16, 22, 21, 20, 23, 22, 20 };
             final ByteBuffer buf = BufferUtils.createByteBuffer(indices.length);
@@ -283,7 +284,7 @@ public class Box extends Mesh {
 
     /**
      * <code>clone</code> creates a new Box object containing the same data as this one.
-     * 
+     *
      * @return the new Box
      */
     @Override
@@ -314,7 +315,7 @@ public class Box extends Mesh {
         capsule.write(_xExtent, "xExtent", 0);
         capsule.write(_yExtent, "yExtent", 0);
         capsule.write(_zExtent, "zExtent", 0);
-        capsule.write(_center, "center", new Vector3(Vector3.ZERO));
+        capsule.write(_center, "center", (Vector3) Vector3.ZERO);
 
     }
 
@@ -324,6 +325,6 @@ public class Box extends Mesh {
         _xExtent = capsule.readDouble("xExtent", 0);
         _yExtent = capsule.readDouble("yExtent", 0);
         _zExtent = capsule.readDouble("zExtent", 0);
-        _center.set((Vector3) capsule.readSavable("center", new Vector3(Vector3.ZERO)));
+        _center.set(capsule.readSavable("center", (Vector3) Vector3.ZERO));
     }
 }

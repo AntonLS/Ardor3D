@@ -1,0 +1,21 @@
+--- # textured, full screen quad
+techniques: 
+  passes: 
+      - 
+        attributes:
+          - key: vertex
+          - key: uv0
+
+        uniforms: 
+          -
+            shaderKey: sampleDist
+            type: Float1
+            source: SpatialProperty
+
+        shaders: 
+          Vertex: 
+            source: unlit/fsq.vert
+            define: UV_COUNT 1
+            
+          Fragment:
+            source: bloom/bloom_blur_vertical5_down.frag

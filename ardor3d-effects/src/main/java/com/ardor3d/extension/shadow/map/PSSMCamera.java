@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.shadow.map;
@@ -143,7 +143,7 @@ public class PSSMCamera extends Camera {
         _corners[6].addLocal(-_extents.getX(), _extents.getY(), -_extents.getZ());
         _corners[7].addLocal(-_extents.getX(), -_extents.getY(), -_extents.getZ());
 
-        final ReadOnlyMatrix4 mvMatrix = getModelViewMatrix();
+        final ReadOnlyMatrix4 mvMatrix = getViewMatrix();
         double optimalCameraNear = Double.MAX_VALUE;
         double optimalCameraFar = -Double.MAX_VALUE;
         final Vector4 position = Vector4.fetchTempInstance();
@@ -187,7 +187,7 @@ public class PSSMCamera extends Camera {
      */
     public void calculateFrustum(final double fNear, final double fFar) {
         final double fNearPlaneHeight, fNearPlaneWidth, fFarPlaneHeight, fFarPlaneWidth;
-        if (getProjectionMode() == ProjectionMode.Parallel) {
+        if (getProjectionMode() == ProjectionMode.Orthographic) {
             fNearPlaneHeight = (_frustumTop - _frustumBottom) * 0.5;
             fNearPlaneWidth = (_frustumRight - _frustumLeft) * 0.5;
 

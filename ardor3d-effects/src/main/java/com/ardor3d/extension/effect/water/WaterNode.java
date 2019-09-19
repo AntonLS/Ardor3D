@@ -1,16 +1,15 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.effect.water;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,24 +29,15 @@ import com.ardor3d.renderer.Camera.ProjectionMode;
 import com.ardor3d.renderer.ContextCapabilities;
 import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.TextureRenderer;
-import com.ardor3d.renderer.TextureRendererFactory;
-import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
-import com.ardor3d.renderer.state.ClipState;
 import com.ardor3d.renderer.state.CullState;
-import com.ardor3d.renderer.state.FogState;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
 import com.ardor3d.renderer.state.TextureState;
+import com.ardor3d.renderer.texture.TextureRenderer;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.scenegraph.hint.CullHint;
-import com.ardor3d.scenegraph.hint.LightCombineMode;
-import com.ardor3d.scenegraph.hint.TextureCombineMode;
 import com.ardor3d.scenegraph.shape.Quad;
 import com.ardor3d.util.TextureManager;
-import com.ardor3d.util.resource.ResourceLocatorTool;
-import com.google.common.collect.Lists;
 
 /**
  * The WaterNode handles rendering of a water effect on all of it's children. What is reflected in the water is
@@ -70,23 +60,18 @@ public class WaterNode extends Node {
     protected Texture2D textureRefract;
     protected Texture2D textureDepth;
 
-    protected ArrayList<Spatial> renderList = Lists.newArrayList();
-    protected ArrayList<Texture> texArray = Lists.newArrayList();
+    protected ArrayList<Spatial> renderList = new ArrayList<>();
+    protected ArrayList<Texture> texArray = new ArrayList<>();
     protected Node skyBox;
 
-    protected GLSLShaderObjectsState waterShader;
     protected CullState cullBackFace;
     protected TextureState textureState;
-    protected TextureState fallbackTextureState;
 
     private Texture normalmapTexture;
     private Texture dudvTexture;
     private Texture foamTexture;
-    private Texture fallbackTexture;
-    private Matrix4 fallbackTextureStateMatrix;
 
     protected BlendState as1;
-    protected FogState noFog;
 
     protected Plane waterPlane;
     protected Vector3 tangent;
@@ -104,33 +89,27 @@ public class WaterNode extends Node {
     protected boolean aboveWater;
     protected double normalTranslation = 0.0;
     protected double refractionTranslation = 0.0;
-    protected boolean supported = true;
     protected boolean useProjectedShader = false;
     protected boolean useRefraction = false;
     protected boolean useReflection = true;
     protected int renderScale;
 
-    protected String simpleShaderStr = "com/ardor3d/extension/effect/water/flatwatershader";
-    protected String simpleShaderRefractionStr = "com/ardor3d/extension/effect/water/flatwatershader_refraction";
-    protected String projectedShaderStr = "com/ardor3d/extension/effect/water/projectedwatershader";
-    protected String projectedShaderRefractionStr = "com/ardor3d/extension/effect/water/projectedwatershader_refraction";
-    protected String currentShaderStr;
+//    protected String projectedShaderStr = "com/ardor3d/extension/effect/water/projectedwatershader";
+//    protected String projectedShaderRefractionStr = "com/ardor3d/extension/effect/water/projectedwatershader_refraction";
 
     protected String normalMapTextureString = "";
     protected String dudvMapTextureString = "";
     protected String foamMapTextureString = "";
-    protected String fallbackMapTextureString = "";
 
-    private GLSLShaderObjectsState blurShaderVertical = null;
-    private float blurSampleDistance = 0.002f;
-    private Quad fullScreenQuad = null;
+    private float blurSampleDistance;
+    private final Quad fullScreenQuad;
     private boolean doBlurReflection = true;
 
     private boolean initialized;
 
     /**
      * Resets water parameters to default values
-     * 
+     *
      */
     public void resetParameters() {
         waterPlane = new Plane(new Vector3(0.0, 1.0, 0.0), 0.0);
@@ -145,24 +124,22 @@ public class WaterNode extends Node {
         heightFalloffSpeed = 500.0;
         speedReflection = 0.1;
         speedRefraction = -0.05;
+
+        setBlurSampleDistance(0.005f);
     }
 
     /**
-     * Release pbuffers in TextureRenderer's. Preferably called from user cleanup method.
+     * Release fbo in TextureRenderer's. Preferably called from user cleanup method.
      */
     public void cleanup() {
-        if (isSupported() && tRenderer != null) {
+        if (tRenderer != null) {
             tRenderer.cleanup();
         }
     }
 
-    public boolean isSupported() {
-        return supported;
-    }
-
     /**
      * Creates a new WaterRenderPass
-     * 
+     *
      * @param cam
      *            main rendercam to use for reflection settings etc
      * @param renderScale
@@ -178,10 +155,10 @@ public class WaterNode extends Node {
         this.useProjectedShader = useProjectedShader;
         this.useRefraction = useRefraction;
         this.renderScale = renderScale;
-        resetParameters();
 
-        waterShader = new GLSLShaderObjectsState();
-        blurShaderVertical = new GLSLShaderObjectsState();
+        fullScreenQuad = Quad.newFullScreenQuad();
+
+        resetParameters();
 
         cullBackFace = new CullState();
         cullBackFace.setEnabled(true);
@@ -190,7 +167,7 @@ public class WaterNode extends Node {
 
     /**
      * Initialize texture renderers. Load water textures. Create shaders.
-     * 
+     *
      * @param r
      */
     private void initialize(final Renderer r) {
@@ -201,58 +178,34 @@ public class WaterNode extends Node {
 
         final ContextCapabilities caps = ContextManager.getCurrentContext().getCapabilities();
 
-        if (useRefraction && useProjectedShader && caps.getNumberOfFragmentTextureUnits() < 6 || useRefraction
-                && caps.getNumberOfFragmentTextureUnits() < 5) {
+        if (useRefraction && useProjectedShader && caps.getNumberOfFragmentTextureUnits() < 6
+                || useRefraction && caps.getNumberOfFragmentTextureUnits() < 5) {
             useRefraction = false;
             logger.info("Not enough textureunits, falling back to non refraction water");
         }
 
-        if (!caps.isGLSLSupported()) {
-            supported = false;
-        }
-        if (!(caps.isPbufferSupported() || caps.isFBOSupported())) {
-            supported = false;
-        }
+        tRenderer = r.createTextureRenderer( //
+                cam.getWidth() / renderScale, // width
+                cam.getHeight() / renderScale, // height
+                24, // Depth bits... TODO: Make configurable?
+                0); // Samples... TODO: Make configurable?
 
-        if (isSupported()) {
-            tRenderer = TextureRendererFactory.INSTANCE.createTextureRenderer( //
-                    cam.getWidth() / renderScale, // width
-                    cam.getHeight() / renderScale, // height
-                    8, // Depth bits... TODO: Make configurable?
-                    0, // Samples... TODO: Make configurable?
-                    r, caps);
+        // blurSampleDistance = 1f / ((float) cam.getHeight() / renderScale);
 
-            // blurSampleDistance = 1f / ((float) cam.getHeight() / renderScale);
+        tRenderer.setBackgroundColor(new ColorRGBA(0.0f, 0.0f, 0.0f, 1.0f));
+        tRenderer.getCamera().setFrustum(cam.getFrustumNear(), cam.getFrustumFar(), cam.getFrustumLeft(),
+                cam.getFrustumRight(), cam.getFrustumTop(), cam.getFrustumBottom());
 
-            tRenderer.setMultipleTargets(true);
-            tRenderer.setBackgroundColor(new ColorRGBA(0.0f, 0.0f, 0.0f, 1.0f));
-            tRenderer.getCamera().setFrustum(cam.getFrustumNear(), cam.getFrustumFar(), cam.getFrustumLeft(),
-                    cam.getFrustumRight(), cam.getFrustumTop(), cam.getFrustumBottom());
+        textureState = new TextureState();
+        textureState.setEnabled(true);
 
-            textureState = new TextureState();
-            textureState.setEnabled(true);
+        setupTextures();
 
-            setupTextures();
-
-            fullScreenQuad = new Quad("FullScreenQuad", cam.getWidth() / 4, cam.getHeight() / 4);
-            fullScreenQuad.setTranslation(cam.getWidth() / 2, cam.getHeight() / 2, 0);
-            fullScreenQuad.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
-            fullScreenQuad.getSceneHints().setCullHint(CullHint.Never);
-            fullScreenQuad.getSceneHints().setTextureCombineMode(TextureCombineMode.Replace);
-            fullScreenQuad.getSceneHints().setLightCombineMode(LightCombineMode.Off);
-            final TextureState ts = new TextureState();
-            ts.setTexture(textureReflect);
-            fullScreenQuad.setRenderState(ts);
-            fullScreenQuad.setRenderState(blurShaderVertical);
-            fullScreenQuad.updateWorldRenderStates(false);
-        }
-
-        if (!isSupported()) {
-            createFallbackData();
-        } else {
-            noFog = new FogState();
-            noFog.setEnabled(false);
-        }
+        final TextureState ts = new TextureState();
+        ts.setTexture(textureReflect);
+        fullScreenQuad.setRenderState(ts);
+        fullScreenQuad.updateWorldRenderStates(false);
+        fullScreenQuad.setRenderMaterial("bloom/fsq_blur_vertical5_down.yaml");
 
         getSceneHints().setCullHint(CullHint.Never);
 
@@ -266,10 +219,6 @@ public class WaterNode extends Node {
         textureReflect = new Texture2D();
         textureReflect.setWrap(Texture.WrapMode.EdgeClamp);
         textureReflect.setMagnificationFilter(Texture.MagnificationFilter.Bilinear);
-        Matrix4 matrix = new Matrix4();
-        matrix.setM00(-1.0);
-        matrix.setM30(1.0);
-        textureReflect.setTextureMatrix(matrix);
         tRenderer.setupTexture(textureReflect);
 
         normalmapTexture = TextureManager.load(normalMapTextureString, Texture.MinificationFilter.Trilinear,
@@ -280,17 +229,12 @@ public class WaterNode extends Node {
         textureReflectBlur = new Texture2D();
         textureReflectBlur.setWrap(Texture.WrapMode.EdgeClamp);
         textureReflectBlur.setMagnificationFilter(Texture.MagnificationFilter.Bilinear);
-        textureReflectBlur.setTextureMatrix(matrix);
         tRenderer.setupTexture(textureReflectBlur);
 
         textureState.setTexture(textureReflectBlur, 1);
 
         dudvTexture = TextureManager.load(dudvMapTextureString, Texture.MinificationFilter.Trilinear,
                 TextureStoreFormat.GuessNoCompressedFormat, true);
-        matrix = new Matrix4();
-        matrix.setM00(0.8);
-        matrix.setM11(0.8);
-        dudvTexture.setTextureMatrix(matrix);
         textureState.setTexture(dudvTexture, 2);
         dudvTexture.setWrap(Texture.WrapMode.Repeat);
 
@@ -321,29 +265,7 @@ public class WaterNode extends Node {
             foamTexture.setWrap(Texture.WrapMode.Repeat);
         }
 
-        reloadShader();
-    }
-
-    /**
-     * Create setup to use as fallback if fancy water is not supported.
-     */
-    private void createFallbackData() {
-        fallbackTextureState = new TextureState();
-        fallbackTextureState.setEnabled(true);
-
-        fallbackTexture = TextureManager.load(fallbackMapTextureString, Texture.MinificationFilter.Trilinear,
-                TextureStoreFormat.GuessCompressedFormat, true);
-        fallbackTextureState.setTexture(fallbackTexture, 0);
-        fallbackTexture.setWrap(Texture.WrapMode.Repeat);
-
-        fallbackTextureStateMatrix = new Matrix4();
-
-        as1 = new BlendState();
-        as1.setBlendEnabled(true);
-        as1.setTestEnabled(true);
-        as1.setSourceFunction(BlendState.SourceFunction.SourceAlpha);
-        as1.setDestinationFunction(BlendState.DestinationFunction.OneMinusSourceAlpha);
-        as1.setEnabled(true);
+        resetRenderMaterial();
     }
 
     public void update(final double tpf) {
@@ -359,42 +281,35 @@ public class WaterNode extends Node {
         final double camWaterDist = waterPlane.pseudoDistance(cam.getLocation());
         aboveWater = camWaterDist >= 0;
 
-        if (isSupported()) {
-            waterShader.setUniform("tangent", tangent);
-            waterShader.setUniform("binormal", binormal);
-            waterShader.setUniform("useFadeToFogColor", useFadeToFogColor);
-            waterShader.setUniform("waterColor", waterColorStart);
-            waterShader.setUniform("waterColorEnd", waterColorEnd);
-            waterShader.setUniform("normalTranslation", (float) normalTranslation);
-            waterShader.setUniform("refractionTranslation", (float) refractionTranslation);
-            waterShader.setUniform("abovewater", aboveWater);
-            if (useProjectedShader) {
-                waterShader.setUniform("cameraPos", cam.getLocation());
-                waterShader.setUniform("waterHeight", (float) waterPlane.getConstant());
-                waterShader.setUniform("amplitude", (float) waterMaxAmplitude);
-                waterShader.setUniform("heightFalloffStart", (float) heightFalloffStart);
-                waterShader.setUniform("heightFalloffSpeed", (float) heightFalloffSpeed);
-            }
-
-            final double heightTotal = clipBias + waterMaxAmplitude - waterPlane.getConstant();
-            final Vector4 clipPlane = Vector4.fetchTempInstance();
-
-            if (useReflection) {
-                clipPlane.set(waterPlane.getNormal().getX(), waterPlane.getNormal().getY(), waterPlane.getNormal()
-                        .getZ(), heightTotal);
-                renderReflection(clipPlane);
-            }
-
-            if (useRefraction && aboveWater) {
-                clipPlane.set(-waterPlane.getNormal().getX(), -waterPlane.getNormal().getY(), -waterPlane.getNormal()
-                        .getZ(), -waterPlane.getConstant());
-                renderRefraction(clipPlane);
-            }
+        setProperty("tangent", tangent);
+        setProperty("binormal", binormal);
+        setProperty("useFadeToFogColor", useFadeToFogColor ? 1 : 0);
+        setProperty("waterColor", waterColorStart);
+        setProperty("waterColorEnd", waterColorEnd);
+        setProperty("normalTranslation", (float) normalTranslation);
+        setProperty("refractionTranslation", (float) refractionTranslation);
+        setProperty("abovewater", aboveWater ? 1 : 0);
+        if (useProjectedShader) {
+            setProperty("cameraPos", cam.getLocation());
+            setProperty("waterHeight", (float) waterPlane.getConstant());
+            setProperty("amplitude", (float) waterMaxAmplitude);
+            setProperty("heightFalloffStart", (float) heightFalloffStart);
+            setProperty("heightFalloffSpeed", (float) heightFalloffSpeed);
         }
 
-        if (fallbackTextureState != null) {
-            fallbackTextureStateMatrix.setM31(normalTranslation);
-            fallbackTexture.setTextureMatrix(fallbackTextureStateMatrix);
+        final double heightTotal = clipBias + waterMaxAmplitude - waterPlane.getConstant();
+        final Vector4 clipPlane = Vector4.fetchTempInstance();
+
+        if (useReflection) {
+            clipPlane.set(waterPlane.getNormal().getX(), waterPlane.getNormal().getY(), waterPlane.getNormal().getZ(),
+                    heightTotal);
+            renderReflection(clipPlane);
+        }
+
+        if (useRefraction && aboveWater) {
+            clipPlane.set(-waterPlane.getNormal().getX(), -waterPlane.getNormal().getY(),
+                    -waterPlane.getNormal().getZ(), -waterPlane.getConstant());
+            renderRefraction(clipPlane);
         }
 
         super.draw(r);
@@ -405,82 +320,32 @@ public class WaterNode extends Node {
         refractionTranslation += speedRefraction * tpf;
     }
 
-    public void reloadShader() {
+    protected void resetRenderMaterial() {
         if (useProjectedShader) {
             if (useRefraction) {
-                currentShaderStr = projectedShaderRefractionStr;
+                setRenderMaterial("water/projected_water_refracted.yaml");
             } else {
-                currentShaderStr = projectedShaderStr;
+                setRenderMaterial("water/projected_water.yaml");
             }
         } else {
             if (useRefraction) {
-                currentShaderStr = simpleShaderRefractionStr;
+                setRenderMaterial("water/flat_water_refracted.yaml");
             } else {
-                currentShaderStr = simpleShaderStr;
+                setRenderMaterial("water/flat_water.yaml");
             }
         }
-
-        try {
-            logger.info("loading " + currentShaderStr);
-            waterShader.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(WaterNode.class,
-                    currentShaderStr + ".vert"));
-            waterShader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(WaterNode.class,
-                    currentShaderStr + ".frag"));
-        } catch (final IOException e) {
-            logger.log(Level.WARNING, "Error loading shader", e);
-            return;
-        }
-
-        waterShader.setUniform("normalMap", 0);
-        waterShader.setUniform("reflection", 1);
-        waterShader.setUniform("dudvMap", 2);
-        if (useRefraction) {
-            waterShader.setUniform("refraction", 3);
-            waterShader.setUniform("depthMap", 4);
-        }
-        if (useProjectedShader) {
-            if (useRefraction) {
-                waterShader.setUniform("foamMap", 5);
-            } else {
-                waterShader.setUniform("foamMap", 3);
-            }
-        }
-
-        waterShader._needSendShader = true;
-
-        try {
-            blurShaderVertical.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(WaterNode.class,
-                    "com/ardor3d/extension/effect/bloom/bloom_blur.vert"));
-            blurShaderVertical.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(WaterNode.class,
-                    "com/ardor3d/extension/effect/bloom/bloom_blur_vertical5_down.frag"));
-        } catch (final IOException ex) {
-            logger.logp(Level.SEVERE, getClass().getName(), "init(Renderer)", "Could not load shaders.", ex);
-        }
-        blurShaderVertical.setUniform("RT", 0);
-        blurShaderVertical.setUniform("sampleDist", blurSampleDistance);
-        blurShaderVertical._needSendShader = true;
-
-        logger.info("Shader reloaded...");
     }
 
     /**
      * Sets a spatial up for being rendered with the watereffect
-     * 
+     *
      * @param spatial
      *            Spatial to use as base for the watereffect
      */
     public void setWaterEffectOnSpatial(final Spatial spatial) {
         spatial.setRenderState(cullBackFace);
-        if (isSupported()) {
-            // spatial.setRenderBucketType(RenderBucketType.Skip);
-            spatial.setRenderState(waterShader);
-            spatial.setRenderState(textureState);
-        } else {
-            spatial.getSceneHints().setRenderBucketType(RenderBucketType.Transparent);
-            spatial.getSceneHints().setLightCombineMode(LightCombineMode.Off);
-            spatial.setRenderState(fallbackTextureState);
-            spatial.setRenderState(as1);
-        }
+        // spatial.setRenderBucketType(RenderBucketType.Skip);
+        spatial.setRenderState(textureState);
     }
 
     // temporary vectors for mem opt.
@@ -551,7 +416,7 @@ public class WaterNode extends Node {
 
         tRenderer.getCamera().setProjectionMode(ProjectionMode.Custom);
         tRenderer.getCamera().setProjectionMatrix(cam.getProjectionMatrix());
-        tRenderer.render(skyBox, texArray, Renderer.BUFFER_COLOR_AND_DEPTH);
+        tRenderer.renderSpatial(skyBox, texArray, Renderer.BUFFER_COLOR_AND_DEPTH);
 
         if (skyBox != null) {
             skyBox.getSceneHints().setCullHint(CullHint.Always);
@@ -559,7 +424,7 @@ public class WaterNode extends Node {
 
         modifyProjectionMatrix(clipPlane);
 
-        tRenderer.render(renderList, texArray, Renderer.BUFFER_NONE);
+        tRenderer.renderSpatials(renderList, texArray, Renderer.BUFFER_NONE);
 
         if (doBlurReflection) {
             blurReflectionTexture();
@@ -609,10 +474,10 @@ public class WaterNode extends Node {
         texArray.add(textureDepth);
 
         tRenderer.getCamera().update();
-        tRenderer.getCamera().getModelViewMatrix();
+        tRenderer.getCamera().getViewMatrix();
         tRenderer.getCamera().getProjectionMatrix();
 
-        tRenderer.render(renderList, texArray, Renderer.BUFFER_COLOR_AND_DEPTH);
+        tRenderer.renderSpatials(renderList, texArray, Renderer.BUFFER_COLOR_AND_DEPTH);
 
         if (skyBox != null) {
             skyBox.getSceneHints().setCullHint(cullMode);
@@ -638,7 +503,7 @@ public class WaterNode extends Node {
         projectionMatrix = cam.getProjectionMatrix().toArray(projectionMatrix);
 
         // Get the inverse transpose of the current modelview matrix
-        final ReadOnlyMatrix4 modelViewMatrixInvTrans = tRenderer.getCamera().getModelViewMatrix().invert(tmpMatrix)
+        final ReadOnlyMatrix4 modelViewMatrixInvTrans = tRenderer.getCamera().getViewMatrix().invert(tmpMatrix)
                 .transposeLocal();
         modelViewMatrixInvTrans.applyPre(clipPlane, clipPlane);
 
@@ -677,7 +542,7 @@ public class WaterNode extends Node {
 
     /**
      * Adds a spatial to the list of spatials used as reflection in the water
-     * 
+     *
      * @param renderNode
      *            Spatial to add to the list of objects used as reflection in the water
      */
@@ -693,17 +558,11 @@ public class WaterNode extends Node {
 
     /**
      * Sets up a node to be transformed and clipped for skybox usage
-     * 
+     *
      * @param skyBox
      *            Handle to a node to use as skybox
      */
     public void setSkybox(final Node skyBox) {
-        if (skyBox != null) {
-            final ClipState skyboxClipState = new ClipState();
-            skyboxClipState.setEnabled(false);
-            skyBox.setRenderState(skyboxClipState);
-        }
-
         this.skyBox = skyBox;
     }
 
@@ -743,7 +602,7 @@ public class WaterNode extends Node {
 
     /**
      * Set at what distance the waveheights should start to fade out(for projected water only)
-     * 
+     *
      * @param heightFalloffStart
      */
     public void setHeightFalloffStart(final double heightFalloffStart) {
@@ -756,7 +615,7 @@ public class WaterNode extends Node {
 
     /**
      * Set the fadeout length of the waveheights, when over falloff start(for projected water only)
-     * 
+     *
      * @param heightFalloffStart
      */
     public void setHeightFalloffSpeed(final double heightFalloffSpeed) {
@@ -769,7 +628,7 @@ public class WaterNode extends Node {
 
     /**
      * Set base height of the waterplane(Used for reflecting the camera for rendering reflection)
-     * 
+     *
      * @param waterHeight
      *            Waterplane height
      */
@@ -783,7 +642,7 @@ public class WaterNode extends Node {
 
     /**
      * Set the normal of the waterplane(Used for reflecting the camera for rendering reflection)
-     * 
+     *
      * @param normal
      *            Waterplane normal
      */
@@ -797,7 +656,7 @@ public class WaterNode extends Node {
 
     /**
      * Set the movement speed of the reflectiontexture
-     * 
+     *
      * @param speedReflection
      *            Speed of reflectiontexture
      */
@@ -811,7 +670,7 @@ public class WaterNode extends Node {
 
     /**
      * Set the movement speed of the refractiontexture
-     * 
+     *
      * @param speedRefraction
      *            Speed of refractiontexture
      */
@@ -825,7 +684,7 @@ public class WaterNode extends Node {
 
     /**
      * Maximum amplitude of the water, used for clipping correctly(projected water only)
-     * 
+     *
      * @param waterMaxAmplitude
      *            Maximum amplitude
      */
@@ -879,7 +738,7 @@ public class WaterNode extends Node {
 
     /**
      * If true, fade to fogcolor. If false, fade to 100% reflective surface
-     * 
+     *
      * @param value
      */
     public void useFadeToFogColor(final boolean value) {
@@ -896,7 +755,7 @@ public class WaterNode extends Node {
 
     /**
      * Turn reflection on and off
-     * 
+     *
      * @param useReflection
      */
     public void setUseReflection(final boolean useReflection) {
@@ -904,7 +763,7 @@ public class WaterNode extends Node {
             return;
         }
         this.useReflection = useReflection;
-        reloadShader();
+        resetRenderMaterial();
     }
 
     public boolean isUseRefraction() {
@@ -913,7 +772,7 @@ public class WaterNode extends Node {
 
     /**
      * Turn refraction on and off
-     * 
+     *
      * @param useRefraction
      */
     public void setUseRefraction(final boolean useRefraction) {
@@ -921,7 +780,7 @@ public class WaterNode extends Node {
             return;
         }
         this.useRefraction = useRefraction;
-        reloadShader();
+        resetRenderMaterial();
     }
 
     public int getRenderScale() {
@@ -941,7 +800,7 @@ public class WaterNode extends Node {
             return;
         }
         this.useProjectedShader = useProjectedShader;
-        reloadShader();
+        resetRenderMaterial();
     }
 
     public double getReflectionThrottle() {
@@ -969,18 +828,7 @@ public class WaterNode extends Node {
     }
 
     public void updateCamera() {
-        if (isSupported()) {
-            tRenderer.getCamera().setFrustum(cam.getFrustumNear(), cam.getFrustumFar(), cam.getFrustumLeft(),
-                    cam.getFrustumRight(), cam.getFrustumTop(), cam.getFrustumBottom());
-        }
-    }
-
-    public void setFallbackTexture(final Texture fallbackTexture) {
-        this.fallbackTexture = fallbackTexture;
-    }
-
-    public Texture getFallbackTexture() {
-        return fallbackTexture;
+        tRenderer.getCamera().setFrustum(cam);
     }
 
     public void setNormalmapTexture(final Texture normalmapTexture) {
@@ -1052,21 +900,6 @@ public class WaterNode extends Node {
         this.foamMapTextureString = foamMapTextureString;
     }
 
-    /**
-     * @return the fallbackMapTextureString
-     */
-    public String getFallbackMapTextureString() {
-        return fallbackMapTextureString;
-    }
-
-    /**
-     * @param fallbackMapTextureString
-     *            the fallbackMapTextureString to set
-     */
-    public void setFallbackMapTextureString(final String fallbackMapTextureString) {
-        this.fallbackMapTextureString = fallbackMapTextureString;
-    }
-
     public boolean isDoBlurReflection() {
         return doBlurReflection;
     }
@@ -1081,5 +914,6 @@ public class WaterNode extends Node {
 
     public void setBlurSampleDistance(final float blurSampleDistance) {
         this.blurSampleDistance = blurSampleDistance;
+        fullScreenQuad.setProperty("sampleDist", blurSampleDistance);
     }
 }

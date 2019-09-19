@@ -1,15 +1,17 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.terrain.providers.simplearray;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,8 +21,6 @@ import com.ardor3d.extension.terrain.client.TextureSource;
 import com.ardor3d.extension.terrain.providers.image.ImageTextureSource;
 import com.ardor3d.extension.terrain.util.NormalMapUtil;
 import com.ardor3d.image.Image;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 public class SimpleArrayTerrainDataProvider implements TerrainDataProvider {
     private static final int tileSize = 128;
@@ -45,7 +45,7 @@ public class SimpleArrayTerrainDataProvider implements TerrainDataProvider {
 
     @Override
     public Map<Integer, String> getAvailableMaps() throws Exception {
-        final Map<Integer, String> maps = Maps.newHashMap();
+        final Map<Integer, String> maps = new HashMap<>();
         maps.put(0, "InMemoryData");
 
         return maps;
@@ -66,7 +66,7 @@ public class SimpleArrayTerrainDataProvider implements TerrainDataProvider {
         if (generateNormalMap) {
             try {
                 final Image normalImage = NormalMapUtil.constructNormalMap(heightData, side, 1, 1, 1);
-                final List<Integer> heightMapSizes = Lists.newArrayList();
+                final List<Integer> heightMapSizes = new ArrayList<>();
                 int currentSize = side;
                 heightMapSizes.add(currentSize);
                 for (int i = 0; i < 8; i++) {

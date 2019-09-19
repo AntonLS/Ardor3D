@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.input.swt;
@@ -21,13 +21,13 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 
 import com.ardor3d.image.util.SWTImageUtil;
-import com.ardor3d.input.GrabbedState;
-import com.ardor3d.input.MouseCursor;
-import com.ardor3d.input.MouseManager;
+import com.ardor3d.input.mouse.GrabbedState;
+import com.ardor3d.input.mouse.MouseCursor;
+import com.ardor3d.input.mouse.MouseManager;
 
 /**
- * Implementation of the {@link com.ardor3d.input.MouseManager} interface for use with SWT. This implementation supports
- * the optional {@link #setGrabbed(com.ardor3d.input.GrabbedState)} and {@link #setPosition(int, int)} methods. The
+ * Implementation of the {@link com.ardor3d.input.mouse.MouseManager} interface for use with SWT. This implementation supports
+ * the optional {@link #setGrabbed(com.ardor3d.input.mouse.GrabbedState)} and {@link #setPosition(int, int)} methods. The
  * constructor takes an SWT {@link org.eclipse.swt.widgets.Control} instance, for which the cursor is set. In a
  * multi-canvas application, each canvas can have its own SwtMouseManager instance, or it is possible to use a single
  * one for the SWT container that includes the control.
@@ -49,15 +49,15 @@ public class SwtMouseManager implements MouseManager {
     }
 
     public void setCursor(final MouseCursor cursor) {
-        if (cursor == MouseCursor.SYSTEM_DEFAULT) {
+        if (cursor == MouseCursor.SYSTEM_DEFAULT || cursor == null) {
             _control.setCursor(null);
             return;
         }
 
         final ImageData imageData = SWTImageUtil.convertToSWT(cursor.getImage()).get(0);
 
-        final Cursor swtCursor = new Cursor(_control.getDisplay(), imageData, cursor.getHotspotX(), cursor
-                .getHotspotY());
+        final Cursor swtCursor = new Cursor(_control.getDisplay(), imageData, cursor.getHotspotX(),
+                cursor.getHotspotY());
 
         _control.setCursor(swtCursor);
     }

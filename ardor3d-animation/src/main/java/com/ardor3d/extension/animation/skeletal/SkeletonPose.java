@@ -1,17 +1,18 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.animation.skeletal;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ardor3d.annotation.SavableFactory;
@@ -21,7 +22,6 @@ import com.ardor3d.util.export.CapsuleUtils;
 import com.ardor3d.util.export.InputCapsule;
 import com.ardor3d.util.export.OutputCapsule;
 import com.ardor3d.util.export.Savable;
-import com.google.common.collect.Lists;
 
 /**
  * Joins a Skeleton with an array of joint poses. This allows the skeleton to exist and be reused between multiple
@@ -48,13 +48,13 @@ public class SkeletonPose implements Savable {
     /**
      * The list of elements interested in notification when this SkeletonPose updates. Not saved to savable.
      */
-    private transient final List<PoseListener> _poseListeners = Lists.newArrayListWithCapacity(1);
+    private transient final List<PoseListener> _poseListeners = new ArrayList<>(1);
 
     /**
      * Construct a new SkeletonPose using the given Skeleton.
-     * 
+     *
      * @param skeleton
-     *            the skeleton to use.
+     *                     the skeleton to use.
      */
     public SkeletonPose(final Skeleton skeleton) {
         assert skeleton != null : "skeleton must not be null.";
@@ -115,9 +115,9 @@ public class SkeletonPose implements Savable {
 
     /**
      * Register a PoseListener on this SkeletonPose.
-     * 
+     *
      * @param listener
-     *            the PoseListener
+     *                     the PoseListener
      */
     public void addPoseListener(final PoseListener listener) {
         _poseListeners.add(listener);
@@ -125,9 +125,9 @@ public class SkeletonPose implements Savable {
 
     /**
      * Remove a PoseListener from this SkeletonPose.
-     * 
+     *
      * @param listener
-     *            the PoseListener
+     *                     the PoseListener
      */
     public void removePoseListener(final PoseListener listener) {
         _poseListeners.remove(listener);
@@ -244,7 +244,7 @@ public class SkeletonPose implements Savable {
     }
 
     public void read(final InputCapsule capsule) throws IOException {
-        final Skeleton skeleton = (Skeleton) capsule.readSavable("skeleton", null);
+        final Skeleton skeleton = capsule.readSavable("skeleton", null);
         final Transform[] localTransforms = CapsuleUtils.asArray(capsule.readSavableArray("localTransforms", null),
                 Transform.class);
         try {

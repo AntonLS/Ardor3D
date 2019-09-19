@@ -1,18 +1,20 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.model.obj;
 
 import java.nio.Buffer;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,7 +22,6 @@ import com.ardor3d.math.Vector2;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
-import com.ardor3d.renderer.state.MaterialState;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.scenegraph.IndexBufferData;
 import com.ardor3d.scenegraph.Line;
@@ -33,8 +34,6 @@ import com.ardor3d.util.geom.BufferUtils;
 import com.ardor3d.util.geom.GeometryTool;
 import com.ardor3d.util.geom.GeometryTool.MatchCondition;
 import com.ardor3d.util.geom.VertGroupData;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 public class ObjGeometryStore {
     private static final String DEFAULT_GROUP = "_default_";
@@ -45,7 +44,7 @@ public class ObjGeometryStore {
     private int _totalLines = 0;
     private int _totalMeshes = 0;
     private final Node _root = new Node();
-    private final Map<String, Spatial> _groupMap = Maps.newHashMap();
+    private final Map<String, Spatial> _groupMap = new HashMap<>();
 
     private ObjMaterial _currentMaterial = new ObjMaterial("default");
     private String _currentObjectName;
@@ -55,18 +54,11 @@ public class ObjGeometryStore {
     private ObjSetManager _lineManager;
     private ObjSetManager _pointManager;
 
-    private final Map<String, ObjMaterial> materialLibrary = Maps.newHashMap();
-    private final Map<Spatial, String> _materialMap = Maps.newHashMap();
-
-    private final GeometryTool _geometryTool;
+    private final Map<String, ObjMaterial> materialLibrary = new HashMap<>();
+    private final Map<Spatial, String> _materialMap = new HashMap<>();
 
     public ObjGeometryStore() {
-        this(new GeometryTool());
-    }
-
-    public ObjGeometryStore(final GeometryTool geometryTool) {
         super();
-        _geometryTool = geometryTool;
     }
 
     public Map<String, ObjMaterial> getMaterialLibrary() {
@@ -192,14 +184,14 @@ public class ObjGeometryStore {
             }
 
             final Point points = new Point(name, vertices, null, null, null);
-            final IndexBufferData<? extends Buffer> indexBuffer = BufferUtils.createIndexBufferData(_pointManager
-                    .getIndices().size(), vertices.length - 1);
+            final IndexBufferData<? extends Buffer> indexBuffer = BufferUtils
+                    .createIndexBufferData(_pointManager.getIndices().size(), vertices.length - 1);
             for (final int index : _pointManager.getIndices()) {
                 indexBuffer.put(index);
             }
             points.getMeshData().setIndices(indexBuffer);
 
-            _geometryTool.minimizeVerts(points, EnumSet.noneOf(MatchCondition.class));
+            GeometryTool.minimizeVerts(points, EnumSet.noneOf(MatchCondition.class));
 
             applyCurrentMaterial(points);
             mapToGroups(points);
@@ -233,8 +225,8 @@ public class ObjGeometryStore {
             }
 
             final Line line = new Line(name, vertices, null, null, hasUVs ? uvs : null);
-            final IndexBufferData<? extends Buffer> indexBuffer = BufferUtils.createIndexBufferData(_lineManager
-                    .getIndices().size(), vertices.length - 1);
+            final IndexBufferData<? extends Buffer> indexBuffer = BufferUtils
+                    .createIndexBufferData(_lineManager.getIndices().size(), vertices.length - 1);
             for (final int index : _lineManager.getIndices()) {
                 indexBuffer.put(index);
             }
@@ -247,7 +239,7 @@ public class ObjGeometryStore {
                 }
                 line.getMeshData().setIndexLengths(lengths);
             }
-            _geometryTool.minimizeVerts(line, EnumSet.of(MatchCondition.UVs));
+            GeometryTool.minimizeVerts(line, EnumSet.of(MatchCondition.UVs));
 
             applyCurrentMaterial(line);
             mapToGroups(line);
@@ -274,7 +266,7 @@ public class ObjGeometryStore {
 
             int j = 0;
             final long[] vertGroups = new long[_meshManager.getStore().size()];
-            final List<Long> groups = Lists.newArrayList();
+            final List<Long> groups = new ArrayList<>();
             Vector3 vector;
             for (final ObjIndexSet set : _meshManager.getStore().keySet()) {
                 vertGroups[j] = set.getSmoothGroup();
@@ -309,8 +301,8 @@ public class ObjGeometryStore {
                 mesh.getMeshData().setTextureBuffer(uvs, 0);
             }
 
-            final IndexBufferData<? extends Buffer> indexBuffer = BufferUtils.createIndexBufferData(_meshManager
-                    .getIndices().size(), _meshManager.getStore().size() - 1);
+            final IndexBufferData<? extends Buffer> indexBuffer = BufferUtils
+                    .createIndexBufferData(_meshManager.getIndices().size(), _meshManager.getStore().size() - 1);
             for (final int index : _meshManager.getIndices()) {
                 indexBuffer.put(index);
             }
@@ -326,7 +318,7 @@ public class ObjGeometryStore {
             groupData.setVertGroups(vertGroups);
             groupData.setGroupConditions(VertGroupData.DEFAULT_GROUP,
                     EnumSet.of(MatchCondition.Normal, MatchCondition.UVs));
-            _geometryTool.minimizeVerts(mesh, groupData);
+            GeometryTool.minimizeVerts(mesh, groupData);
 
             applyCurrentMaterial(mesh);
             mapToGroups(mesh);
@@ -340,10 +332,7 @@ public class ObjGeometryStore {
     }
 
     private void applyCurrentMaterial(final Spatial target) {
-        final MaterialState material = _currentMaterial.getMaterialState();
-        if (material != null) {
-            target.setRenderState(material);
-        }
+        _currentMaterial.applyMaterialProperties(target);
 
         final TextureState tState = _currentMaterial.getTextureState();
         if (tState != null) {

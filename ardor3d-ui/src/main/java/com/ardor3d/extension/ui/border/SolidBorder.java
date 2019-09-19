@@ -1,16 +1,17 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.border;
 
 import com.ardor3d.extension.ui.UIComponent;
+import com.ardor3d.extension.ui.util.Insets;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Transform;
 import com.ardor3d.math.Vector3;
@@ -20,11 +21,10 @@ import com.ardor3d.renderer.Renderer;
 import com.ardor3d.renderer.state.BlendState;
 import com.ardor3d.renderer.state.BlendState.DestinationFunction;
 import com.ardor3d.renderer.state.BlendState.SourceFunction;
-import com.ardor3d.renderer.state.ShadingState;
-import com.ardor3d.renderer.state.ShadingState.ShadingMode;
 import com.ardor3d.scenegraph.FloatBufferData;
 import com.ardor3d.scenegraph.IndexBufferData;
 import com.ardor3d.scenegraph.Mesh;
+import com.ardor3d.scenegraph.MeshData;
 import com.ardor3d.util.geom.BufferUtils;
 
 /**
@@ -47,7 +47,7 @@ public class SolidBorder extends UIBorder {
 
     /**
      * Construct a border with the given thicknesses. Uses the default colors.
-     * 
+     *
      * @param top
      * @param left
      * @param bottom
@@ -59,7 +59,7 @@ public class SolidBorder extends UIBorder {
 
     /**
      * Construct a border with the given thicknesses and colors
-     * 
+     *
      * @param top
      * @param left
      * @param bottom
@@ -113,7 +113,7 @@ public class SolidBorder extends UIBorder {
 
     /**
      * Sets all of the border colors to the given color.
-     * 
+     *
      * @param solidColor
      *            new color for all borders
      */
@@ -131,7 +131,8 @@ public class SolidBorder extends UIBorder {
         final float pAlpha = UIComponent.getCurrentOpacity();
 
         final Vector3 v = Vector3.fetchTempInstance();
-        v.set(comp.getMargin().getLeft(), comp.getMargin().getBottom(), 0);
+        final Insets margin = comp.getMargin() != null ? comp.getMargin() : Insets.EMPTY;
+        v.set(margin.getLeft(), margin.getBottom(), 0);
 
         final Transform t = Transform.fetchTempInstance();
         t.set(comp.getWorldTransform());
@@ -176,11 +177,15 @@ public class SolidBorder extends UIBorder {
         setColor(6, _rightColor, pAlpha);
         setColor(7, _rightColor, pAlpha);
 
-        SolidBorder._mesh.getMeshData().getVertexBuffer().rewind();
-        SolidBorder._mesh.getMeshData().getVertexBuffer().put(SolidBorder._verts);
+        final MeshData meshData = SolidBorder._mesh.getMeshData();
+        meshData.getVertexBuffer().rewind();
+        meshData.getVertexBuffer().put(SolidBorder._verts);
 
-        SolidBorder._mesh.getMeshData().getColorBuffer().rewind();
-        SolidBorder._mesh.getMeshData().getColorBuffer().put(SolidBorder._colors);
+        meshData.getColorBuffer().rewind();
+        meshData.getColorBuffer().put(SolidBorder._colors);
+
+        meshData.markBufferDirty(MeshData.KEY_VertexCoords);
+        meshData.markBufferDirty(MeshData.KEY_ColorCoords);
 
         SolidBorder._mesh.render(renderer);
     }
@@ -196,6 +201,8 @@ public class SolidBorder extends UIBorder {
     private static Mesh createMesh() {
         // create a triangle strip of 8 triangles.
         final Mesh mesh = new Mesh();
+        mesh.setRenderMaterial("ui/untextured/vertex_color_flat.yaml");
+
         mesh.getMeshData().setVertexCoords(new FloatBufferData(BufferUtils.createVector2Buffer(8), 2));
         mesh.getMeshData().setColorBuffer(BufferUtils.createColorBuffer(8));
         mesh.getMeshData().setIndexMode(IndexMode.TriangleStrip);
@@ -209,12 +216,6 @@ public class SolidBorder extends UIBorder {
         blend.setSourceFunction(SourceFunction.SourceAlpha);
         blend.setDestinationFunction(DestinationFunction.OneMinusSourceAlpha);
         mesh.setRenderState(blend);
-
-        // use flat shade so our borders will have a solid color.
-        final ShadingState shading = new ShadingState();
-        shading.setShadingMode(ShadingMode.Flat);
-        mesh.setRenderState(shading);
-
         mesh.updateWorldRenderStates(false);
 
         return mesh;

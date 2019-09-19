@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.renderer;
@@ -16,9 +16,13 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.nio.FloatBuffer;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import com.ardor3d.bounding.BoundingVolume;
+import com.ardor3d.framework.Canvas;
+import com.ardor3d.framework.ICanvasListener;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Matrix4;
 import com.ardor3d.math.Plane;
@@ -217,7 +221,7 @@ public class Camera implements Savable, Externalizable {
      * Projection mode used by the camera.
      */
     public enum ProjectionMode {
-        Perspective, Parallel, Custom
+        Perspective, Orthographic, Custom
     }
 
     /**
@@ -231,7 +235,7 @@ public class Camera implements Savable, Externalizable {
     private boolean _updateInverseMVPMatrix = true;
 
     // NB: These matrices are column-major.
-    protected final Matrix4 _modelView = new Matrix4();
+    protected final Matrix4 _view = new Matrix4();
     protected final Matrix4 _projection = new Matrix4();
     private final Matrix4 _modelViewProjection = new Matrix4();
     private final Matrix4 _modelViewProjectionInverse = new Matrix4();
@@ -240,6 +244,18 @@ public class Camera implements Savable, Externalizable {
     protected boolean _frustumDirty;
     protected boolean _viewPortDirty;
     protected boolean _frameDirty;
+
+    /**
+     * A set of layers to use for filtering Spatials from queuing and rendering. See {@link #_exclusiveLayers} for more
+     * details.
+     */
+    protected Set<Integer> _layers = new HashSet<>();
+    /**
+     * If true, the _layers set is exclusive - meaning values that appear in the set are excluded from rendering when
+     * this Camera is the current active camera. If false, the set is instead inclusive, meaning that ONLY layers that
+     * appear in the set are allowed to queue and render.
+     */
+    protected boolean _exclusiveLayers = true;
 
     /**
      * A mask value set during contains() that allows fast culling of a Node's children.
@@ -258,7 +274,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Construct a new Camera with the given frame width and height.
-     * 
+     *
      * @param width
      * @param height
      */
@@ -308,7 +324,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Construct a new camera, using the given source camera's values.
-     * 
+     *
      * @param source
      */
     public Camera(final Camera source) {
@@ -330,7 +346,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Copy the source camera's fields to this camera
-     * 
+     *
      * @param source
      *            the camera to copy from
      */
@@ -367,6 +383,7 @@ public class Camera implements Savable, Externalizable {
         onFrustumChange();
         onViewPortChange();
         onFrameChange();
+
     }
 
     public double getDepthRangeFar() {
@@ -540,7 +557,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Sets the new direction this camera is facing. This does not change left or up axes, so make sure those vectors
      * are properly set as well.
-     * 
+     *
      * @param direction
      *            the new direction this camera is facing.
      */
@@ -552,7 +569,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Sets the new left axis of this camera. This does not change direction or up axis, so make sure those vectors are
      * properly set as well.
-     * 
+     *
      * @param left
      *            the new left axis of this camera.
      */
@@ -564,7 +581,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Sets the new up axis of this camera. This does not change direction or left axis, so make sure those vectors are
      * properly set as well.
-     * 
+     *
      * @param up
      *            the new up axis of this camera.
      */
@@ -590,7 +607,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Sets our left, up and direction values from the given rotation matrix.
-     * 
+     *
      * @param axes
      *            the matrix that defines the orientation of the camera.
      */
@@ -613,7 +630,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Sets the frustum plane values of this camera using the given values.
-     * 
+     *
      * @param near
      * @param far
      * @param left
@@ -621,8 +638,8 @@ public class Camera implements Savable, Externalizable {
      * @param top
      * @param bottom
      */
-    public void setFrustum(final double near, final double far, final double left, final double right,
-            final double top, final double bottom) {
+    public void setFrustum(final double near, final double far, final double left, final double right, final double top,
+            final double bottom) {
         _frustumNear = near;
         _frustumFar = far;
         _frustumLeft = left;
@@ -634,7 +651,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Sets the frustum plane values of this camera using those of a given source camera
-     * 
+     *
      * @param source
      *            a source camera.
      */
@@ -650,7 +667,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Sets the frustum plane values of this camera using the given perspective values.
-     * 
+     *
      * @param fovY
      *            the full angle of view on the Y axis, in degrees.
      * @param aspect
@@ -680,7 +697,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Accessor for the fovY value. Note that this value is only present if setFrustumPerspective was previously called.
-     * 
+     *
      * @return the fovY value
      */
     public double getFovY() {
@@ -690,7 +707,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Sets the axes and location of the camera. Similar to
      * {@link #setAxes(ReadOnlyVector3, ReadOnlyVector3, ReadOnlyVector3)}, but sets camera location as well.
-     * 
+     *
      * @param location
      * @param left
      * @param up
@@ -708,7 +725,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Sets the axes and location of the camera. Similar to {@link #setAxes(ReadOnlyMatrix3)}, but sets camera location
      * as well.
-     * 
+     *
      * @param location
      *            the point position of the camera.
      * @param axes
@@ -724,7 +741,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Sets the axes and location of the camera using those of a given source camera
-     * 
+     *
      * @param source
      *            a source camera.
      */
@@ -740,7 +757,7 @@ public class Camera implements Savable, Externalizable {
      * A convenience method for auto-setting the frame based on a world position the user desires the camera to look at.
      * It points the camera towards the given position using the difference between that position and the current camera
      * location as a direction vector and the general worldUpVector to compute up and left camera vectors.
-     * 
+     *
      * @param pos
      *            where to look at in terms of world coordinates
      * @param worldUpVector
@@ -755,7 +772,7 @@ public class Camera implements Savable, Externalizable {
      * A convenience method for auto-setting the frame based on a world position the user desires the camera to look at.
      * It points the camera towards the given position using the difference between that position and the current camera
      * location as a direction vector and the general worldUpVector to compute up and left camera vectors.
-     * 
+     *
      * @param x
      *            where to look at in terms of world coordinates (x)
      * @param y
@@ -885,7 +902,7 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Sets the boundaries of this camera's viewport to the given values
-     * 
+     *
      * @param left
      * @param right
      * @param bottom
@@ -898,10 +915,44 @@ public class Camera implements Savable, Externalizable {
         setViewPortTop(top);
     }
 
+    public Set<Integer> getLayers() {
+        return _layers;
+    }
+
+    public void setLayers(final Set<Integer> layers) {
+        _layers.clear();
+        _layers.addAll(layers);
+    }
+
+    public boolean addLayer(final int layer) {
+        return _layers.add(layer);
+    }
+
+    public boolean removeLayer(final int layer) {
+        return _layers.remove(layer);
+    }
+
+    public boolean checkLayerPasses(final int layer) {
+        final boolean found = _layers.contains(layer);
+        if (_exclusiveLayers) {
+            return !found;
+        } else {
+            return found;
+        }
+    }
+
+    public boolean isExclusiveLayers() {
+        return _exclusiveLayers;
+    }
+
+    public void setExclusiveLayers(final boolean exclusiveLayers) {
+        _exclusiveLayers = exclusiveLayers;
+    }
+
     /**
      * Checks a bounding volume against the planes of this camera's frustum and returns if it is completely inside of,
      * outside of, or intersecting.
-     * 
+     *
      * @param bound
      *            the bound to check for culling
      * @return intersection type
@@ -944,13 +995,17 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Resizes this camera's view with the given width and height.
-     * 
+     *
      * @param width
      *            the view width
      * @param height
      *            the view height
      */
     public void resize(final int width, final int height) {
+        if (_width == width && _height == height) {
+            return;
+        }
+
         _width = width;
         _height = height;
         onViewPortChange();
@@ -982,7 +1037,7 @@ public class Camera implements Savable, Externalizable {
             inverseLength = 1.0 / Math.sqrt(nearSquared + topSquared);
             _coeffTop[0] = -_frustumNear * inverseLength;
             _coeffTop[1] = _frustumTop * inverseLength;
-        } else if (getProjectionMode() == ProjectionMode.Parallel) {
+        } else if (getProjectionMode() == ProjectionMode.Orthographic) {
             if (_frustumRight > _frustumLeft) {
                 _coeffLeft[0] = -1;
                 _coeffLeft[1] = 0;
@@ -1016,6 +1071,10 @@ public class Camera implements Savable, Externalizable {
         _updateMVPMatrix = true;
         _updateInverseMVPMatrix = true;
 
+        markFrustumDirty();
+    }
+
+    public void markFrustumDirty() {
         _frustumDirty = true;
     }
 
@@ -1031,8 +1090,8 @@ public class Camera implements Savable, Externalizable {
         planeNormal.setX(_left.getX() * _coeffLeft[0]);
         planeNormal.setY(_left.getY() * _coeffLeft[0]);
         planeNormal.setZ(_left.getZ() * _coeffLeft[0]);
-        planeNormal.addLocal(_direction.getX() * _coeffLeft[1], _direction.getY() * _coeffLeft[1], _direction.getZ()
-                * _coeffLeft[1]);
+        planeNormal.addLocal(_direction.getX() * _coeffLeft[1], _direction.getY() * _coeffLeft[1],
+                _direction.getZ() * _coeffLeft[1]);
         _worldPlane[LEFT_PLANE].setNormal(planeNormal);
         _worldPlane[LEFT_PLANE].setConstant(_location.dot(planeNormal));
 
@@ -1040,8 +1099,8 @@ public class Camera implements Savable, Externalizable {
         planeNormal.setX(_left.getX() * _coeffRight[0]);
         planeNormal.setY(_left.getY() * _coeffRight[0]);
         planeNormal.setZ(_left.getZ() * _coeffRight[0]);
-        planeNormal.addLocal(_direction.getX() * _coeffRight[1], _direction.getY() * _coeffRight[1], _direction.getZ()
-                * _coeffRight[1]);
+        planeNormal.addLocal(_direction.getX() * _coeffRight[1], _direction.getY() * _coeffRight[1],
+                _direction.getZ() * _coeffRight[1]);
         _worldPlane[RIGHT_PLANE].setNormal(planeNormal);
         _worldPlane[RIGHT_PLANE].setConstant(_location.dot(planeNormal));
 
@@ -1058,12 +1117,12 @@ public class Camera implements Savable, Externalizable {
         planeNormal.setX(_up.getX() * _coeffTop[0]);
         planeNormal.setY(_up.getY() * _coeffTop[0]);
         planeNormal.setZ(_up.getZ() * _coeffTop[0]);
-        planeNormal.addLocal(_direction.getX() * _coeffTop[1], _direction.getY() * _coeffTop[1], _direction.getZ()
-                * _coeffTop[1]);
+        planeNormal.addLocal(_direction.getX() * _coeffTop[1], _direction.getY() * _coeffTop[1],
+                _direction.getZ() * _coeffTop[1]);
         _worldPlane[TOP_PLANE].setNormal(planeNormal);
         _worldPlane[TOP_PLANE].setConstant(_location.dot(planeNormal));
 
-        if (getProjectionMode() == ProjectionMode.Parallel) {
+        if (getProjectionMode() == ProjectionMode.Orthographic) {
             if (_frustumRight > _frustumLeft) {
                 _worldPlane[LEFT_PLANE].setConstant(_worldPlane[LEFT_PLANE].getConstant() + _frustumLeft);
                 _worldPlane[RIGHT_PLANE].setConstant(_worldPlane[RIGHT_PLANE].getConstant() - _frustumRight);
@@ -1096,6 +1155,10 @@ public class Camera implements Savable, Externalizable {
         _updateMVPMatrix = true;
         _updateInverseMVPMatrix = true;
 
+        markFrameDirty();
+    }
+
+    public void markFrameDirty() {
         _frameDirty = true;
     }
 
@@ -1103,7 +1166,7 @@ public class Camera implements Savable, Externalizable {
      * Updates the value of our projection matrix.
      */
     protected void updateProjectionMatrix() {
-        if (getProjectionMode() == ProjectionMode.Parallel) {
+        if (getProjectionMode() == ProjectionMode.Orthographic) {
             _projection.setIdentity();
             _projection.setM00(2.0 / (_frustumRight - _frustumLeft));
             _projection.setM11(2.0 / (_frustumTop - _frustumBottom));
@@ -1141,34 +1204,34 @@ public class Camera implements Savable, Externalizable {
     }
 
     /**
-     * Updates the value of our model view matrix.
+     * Updates the value of our view matrix.
      */
-    protected void updateModelViewMatrix() {
-        _modelView.setIdentity();
-        _modelView.setM00(-_left.getX());
-        _modelView.setM10(-_left.getY());
-        _modelView.setM20(-_left.getZ());
+    protected void updateViewMatrix() {
+        _view.setIdentity();
+        _view.setM00(-_left.getX());
+        _view.setM10(-_left.getY());
+        _view.setM20(-_left.getZ());
 
-        _modelView.setM01(_up.getX());
-        _modelView.setM11(_up.getY());
-        _modelView.setM21(_up.getZ());
+        _view.setM01(_up.getX());
+        _view.setM11(_up.getY());
+        _view.setM21(_up.getZ());
 
-        _modelView.setM02(-_direction.getX());
-        _modelView.setM12(-_direction.getY());
-        _modelView.setM22(-_direction.getZ());
+        _view.setM02(-_direction.getX());
+        _view.setM12(-_direction.getY());
+        _view.setM22(-_direction.getZ());
 
-        _modelView.setM30(_left.dot(_location));
-        _modelView.setM31(-_up.dot(_location));
-        _modelView.setM32(_direction.dot(_location));
+        _view.setM30(_left.dot(_location));
+        _view.setM31(-_up.dot(_location));
+        _view.setM32(_direction.dot(_location));
     }
 
     /**
-     * @return this camera's 4x4 model view matrix.
+     * @return this camera's 4x4 view matrix.
      */
-    public ReadOnlyMatrix4 getModelViewMatrix() {
+    public ReadOnlyMatrix4 getViewMatrix() {
         checkModelView();
 
-        return _modelView;
+        return _view;
     }
 
     /**
@@ -1192,7 +1255,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Calculate a Pick Ray using the given screen position at the near plane of this camera and the camera's position
      * in space.
-     * 
+     *
      * @param screenPosition
      *            the x, y position on the near space to pass the ray through.
      * @param flipVertical
@@ -1227,7 +1290,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Converts a local x,y screen position and depth value to world coordinates based on the current settings of this
      * camera.
-     * 
+     *
      * @param screenPosition
      *            the x,y coordinates of the screen position
      * @param zDepth
@@ -1242,7 +1305,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Converts a local x,y screen position and depth value to world coordinates based on the current settings of this
      * camera.
-     * 
+     *
      * @param screenPosition
      *            the x,y coordinates of the screen position
      * @param zDepth
@@ -1275,7 +1338,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Converts a position in world coordinate space to an x,y screen position and depth value using the current
      * settings of this camera.
-     * 
+     *
      * @param worldPos
      *            the position in space to retrieve screen coordinates for.
      * @return a new vector containing the screen coordinates as x and y and the distance as a percent between near and
@@ -1288,7 +1351,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Converts a position in world coordinate space to an x,y screen position and depth value using the current
      * settings of this camera.
-     * 
+     *
      * @param worldPos
      *            the position in space to retrieve screen coordinates for.
      * @param store
@@ -1310,7 +1373,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Converts a position in world coordinate space to a x,y,z frustum position using the current settings of this
      * camera.
-     * 
+     *
      * @param worldPos
      *            the position in space to retrieve frustum coordinates for.
      * @return a new vector containing the x,y,z frustum position
@@ -1322,7 +1385,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Converts a position in world coordinate space to a x,y,z frustum position using the current settings of this
      * camera.
-     * 
+     *
      * @param worldPos
      *            the position in space to retrieve frustum coordinates for.
      * @param store
@@ -1366,7 +1429,7 @@ public class Camera implements Savable, Externalizable {
      */
     private void checkModelView() {
         if (_updateMVMatrix) {
-            updateModelViewMatrix();
+            updateViewMatrix();
             _updateMVMatrix = false;
         }
     }
@@ -1386,7 +1449,7 @@ public class Camera implements Savable, Externalizable {
      */
     private void checkModelViewProjection() {
         if (_updateMVPMatrix) {
-            _modelViewProjection.set(getModelViewMatrix()).multiplyLocal(getProjectionMatrix());
+            _modelViewProjection.set(getViewMatrix()).multiplyLocal(getProjectionMatrix());
             _updateMVPMatrix = false;
         }
     }
@@ -1426,13 +1489,16 @@ public class Camera implements Savable, Externalizable {
 
     /**
      * Apply this camera's values to the given Renderer. Only values determined to be dirty (via updates, setters, etc.)
-     * will be applied. This method must be run in the same thread as a valid OpenGL context.
-     * 
+     * will be applied.
+     *
      * @param renderer
      *            the Renderer to use.
      */
     public void apply(final Renderer renderer) {
-        ContextManager.getCurrentContext().setCurrentCamera(this);
+        if (Camera.getCurrentCamera() != this) {
+            _frustumDirty = _viewPortDirty = _frameDirty = true;
+            ContextManager.getCurrentContext().setCurrentCamera(this);
+        }
         if (_depthRangeDirty) {
             renderer.setDepthRange(_depthRangeNear, _depthRangeFar);
             _depthRangeDirty = false;
@@ -1446,7 +1512,7 @@ public class Camera implements Savable, Externalizable {
             _viewPortDirty = false;
         }
         if (_frameDirty) {
-            applyModelViewMatrix(renderer);
+            applyViewMatrix(renderer);
             _frameDirty = false;
         }
     }
@@ -1455,12 +1521,16 @@ public class Camera implements Savable, Externalizable {
      * Mark view port dirty.
      */
     protected void onViewPortChange() {
+        markViewPortDirty();
+    }
+
+    public void markViewPortDirty() {
         _viewPortDirty = true;
     }
 
     /**
      * Apply the camera's projection matrix using the given Renderer.
-     * 
+     *
      * @param renderer
      *            the Renderer to use.
      */
@@ -1468,34 +1538,50 @@ public class Camera implements Savable, Externalizable {
         _matrixBuffer.rewind();
         getProjectionMatrix().toFloatBuffer(_matrixBuffer);
         _matrixBuffer.rewind();
-        renderer.setProjectionMatrix(_matrixBuffer);
+        renderer.setMatrix(RenderMatrixType.Projection, _matrixBuffer);
     }
 
     /**
      * Apply the camera's viewport using the given Renderer.
-     * 
+     *
      * @param renderer
      *            the Renderer to use.
      */
     protected void applyViewport(final Renderer renderer) {
-        final int x = (int) (_viewPortLeft * _width);
-        final int y = (int) (_viewPortBottom * _height);
-        final int w = (int) ((_viewPortRight - _viewPortLeft) * _width);
-        final int h = (int) ((_viewPortTop - _viewPortBottom) * _height);
+        final int x = getViewportOffsetX();
+        final int y = getViewportOffsetY();
+        final int w = getViewportWidth();
+        final int h = getViewportHeight();
         renderer.setViewport(x, y, w, h);
     }
 
+    public int getViewportOffsetX() {
+        return (int) (_viewPortLeft * _width);
+    }
+
+    public int getViewportOffsetY() {
+        return (int) (_viewPortBottom * _height);
+    }
+
+    public int getViewportWidth() {
+        return (int) ((_viewPortRight - _viewPortLeft) * _width);
+    }
+
+    public int getViewportHeight() {
+        return (int) ((_viewPortTop - _viewPortBottom) * _height);
+    }
+
     /**
-     * Apply the camera's modelview matrix using the given Renderer.
-     * 
+     * Apply the camera's view matrix using the given Renderer.
+     *
      * @param renderer
      *            the Renderer to use.
      */
-    protected void applyModelViewMatrix(final Renderer renderer) {
+    protected void applyViewMatrix(final Renderer renderer) {
         _matrixBuffer.rewind();
-        getModelViewMatrix().toFloatBuffer(_matrixBuffer);
+        getViewMatrix().toFloatBuffer(_matrixBuffer);
         _matrixBuffer.rewind();
-        renderer.setModelViewMatrix(_matrixBuffer);
+        renderer.setMatrix(RenderMatrixType.View, _matrixBuffer);
     }
 
     public void write(final OutputCapsule capsule) throws IOException {
@@ -1522,13 +1608,23 @@ public class Camera implements Savable, Externalizable {
         capsule.write(_height, "height", 0);
         capsule.write(_depthRangeNear, "depthRangeNear", 0.0);
         capsule.write(_depthRangeFar, "depthRangeFar", 1.0);
+        capsule.write(_projectionMode, "projectionMode", ProjectionMode.Perspective);
+        if (_layers.size() > 0) {
+            final int[] layers = new int[_layers.size()];
+            int i = 0;
+            for (final int n : _layers) {
+                layers[i++] = n;
+            }
+            capsule.write(layers, "layers", new int[0]);
+        }
+        capsule.write(_exclusiveLayers, "exclusiveLayers", true);
     }
 
     public void read(final InputCapsule capsule) throws IOException {
-        _location.set((Vector3) capsule.readSavable("location", new Vector3(Vector3.ZERO)));
-        _left.set((Vector3) capsule.readSavable("left", new Vector3(Vector3.UNIT_X)));
-        _up.set((Vector3) capsule.readSavable("up", new Vector3(Vector3.UNIT_Y)));
-        _direction.set((Vector3) capsule.readSavable("direction", new Vector3(Vector3.UNIT_Z)));
+        _location.set(capsule.readSavable("location", (Vector3) Vector3.ZERO));
+        _left.set(capsule.readSavable("left", (Vector3) Vector3.UNIT_X));
+        _up.set(capsule.readSavable("up", (Vector3) Vector3.UNIT_Y));
+        _direction.set(capsule.readSavable("direction", (Vector3) Vector3.UNIT_Z));
         _frustumNear = capsule.readDouble("frustumNear", 1);
         _frustumFar = capsule.readDouble("frustumFar", 2);
         _frustumLeft = capsule.readDouble("frustumLeft", -0.5);
@@ -1548,6 +1644,13 @@ public class Camera implements Savable, Externalizable {
         _height = capsule.readInt("height", 0);
         _depthRangeNear = capsule.readDouble("depthRangeNear", 0.0);
         _depthRangeFar = capsule.readDouble("depthRangeFar", 1.0);
+        _projectionMode = capsule.readEnum("projectionMode", ProjectionMode.class, ProjectionMode.Perspective);
+        _layers.clear();
+        final int[] layers = capsule.readIntArray("layers", new int[0]);
+        for (int i = 0; i < layers.length; i++) {
+            _layers.add(layers[i]);
+        }
+        _exclusiveLayers = capsule.readBoolean("exclusiveLayers", true);
     }
 
     public void readExternal(final ObjectInput in) throws IOException, ClassNotFoundException {
@@ -1574,6 +1677,7 @@ public class Camera implements Savable, Externalizable {
         _height = in.readInt();
         _depthRangeNear = in.readDouble();
         _depthRangeFar = in.readDouble();
+        _projectionMode = ProjectionMode.valueOf(in.readUTF());
     }
 
     public void writeExternal(final ObjectOutput out) throws IOException {
@@ -1600,6 +1704,7 @@ public class Camera implements Savable, Externalizable {
         out.writeInt(_height);
         out.writeDouble(_depthRangeNear);
         out.writeDouble(_depthRangeFar);
+        out.writeUTF(_projectionMode.name());
     }
 
     @Override
@@ -1616,7 +1721,7 @@ public class Camera implements Savable, Externalizable {
     /**
      * Convenience method for retrieving the Camera set on the current RenderContext. Similar to
      * ContextManager.getCurrentContext().getCurrentCamera() but with null checks for current context.
-     * 
+     *
      * @return the Camera on the current RenderContext.
      */
     public static Camera getCurrentCamera() {
@@ -1628,5 +1733,31 @@ public class Camera implements Savable, Externalizable {
 
     public boolean isFrameDirty() {
         return _frameDirty;
+    }
+
+    public static Camera newOrthoCamera(final Canvas canvas) {
+        final int width = canvas.getContentWidth();
+        final int height = canvas.getContentHeight();
+
+        final Camera camera = new Camera(width, height);
+        camera.setFrustum(-1, 1, 0, width, height, 0);
+        camera.setProjectionMode(ProjectionMode.Orthographic);
+
+        final Vector3 loc = new Vector3(0.0f, 0.0f, 0.0f);
+        final Vector3 left = new Vector3(-1.0f, 0.0f, 0.0f);
+        final Vector3 up = new Vector3(0.0f, 1.0f, 0.0f);
+        final Vector3 dir = new Vector3(0.0f, 0f, -1.0f);
+        /** Move our camera to a correct place and orientation. */
+        camera.setFrame(loc, left, up, dir);
+
+        canvas.addListener(new ICanvasListener() {
+            @Override
+            public void onResize(final int newWidth, final int newHeight) {
+                camera.resize(newWidth, newHeight);
+                camera.setFrustumRight(newWidth);
+                camera.setFrustumTop(newHeight);
+            }
+        });
+        return camera;
     }
 }

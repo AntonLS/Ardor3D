@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.input.swt;
@@ -14,15 +14,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.LinkedList;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.KeyListener;
 import org.eclipse.swt.widgets.Control;
 
 import com.ardor3d.annotation.GuardedBy;
 import com.ardor3d.annotation.ThreadSafe;
-import com.ardor3d.input.Key;
-import com.ardor3d.input.KeyEvent;
-import com.ardor3d.input.KeyState;
-import com.ardor3d.input.KeyboardWrapper;
+import com.ardor3d.input.character.CharacterInputEvent;
+import com.ardor3d.input.character.CharacterInputWrapper;
+import com.ardor3d.input.keyboard.Key;
+import com.ardor3d.input.keyboard.KeyEvent;
+import com.ardor3d.input.keyboard.KeyState;
+import com.ardor3d.input.keyboard.KeyboardWrapper;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.PeekingIterator;
 
@@ -30,19 +33,25 @@ import com.google.common.collect.PeekingIterator;
  * Keyboard wrapper for SWT input.
  */
 @ThreadSafe
-public class SwtKeyboardWrapper implements KeyboardWrapper, KeyListener {
+public class SwtKeyboardWrapper implements KeyboardWrapper, KeyListener, CharacterInputWrapper {
     @GuardedBy("this")
-    private final LinkedList<KeyEvent> _upcomingEvents;
+    private final LinkedList<KeyEvent> _upcomingKeyEvents = new LinkedList<>();
+
+    @GuardedBy("this")
+    protected final LinkedList<CharacterInputEvent> _upcomingCharacterEvents = new LinkedList<>();
 
     private final Control _control;
 
     @GuardedBy("this")
-    private SwtKeyboardIterator _currentIterator = null;
+    private SwtKeyboardIterator _currentKeyIterator = null;
+
+    @GuardedBy("this")
+    protected SwtCharacterIterator _currentCharacterIterator = null;
+
     @GuardedBy("this")
     private Key _lastKeyPressed = null;
 
     public SwtKeyboardWrapper(final Control control) {
-        _upcomingEvents = new LinkedList<KeyEvent>();
         _control = checkNotNull(control, "control");
     }
 
@@ -50,12 +59,21 @@ public class SwtKeyboardWrapper implements KeyboardWrapper, KeyListener {
         _control.addKeyListener(this);
     }
 
-    public synchronized PeekingIterator<KeyEvent> getEvents() {
-        if (_currentIterator == null || !_currentIterator.hasNext()) {
-            _currentIterator = new SwtKeyboardIterator();
+    public synchronized PeekingIterator<KeyEvent> getKeyEvents() {
+        if (_currentKeyIterator == null || !_currentKeyIterator.hasNext()) {
+            _currentKeyIterator = new SwtKeyboardIterator();
         }
 
-        return _currentIterator;
+        return _currentKeyIterator;
+    }
+
+    @Override
+    public synchronized PeekingIterator<CharacterInputEvent> getCharacterEvents() {
+        if (_currentCharacterIterator == null || !_currentCharacterIterator.hasNext()) {
+            _currentCharacterIterator = new SwtCharacterIterator();
+        }
+
+        return _currentCharacterIterator;
     }
 
     public synchronized void keyPressed(final org.eclipse.swt.events.KeyEvent event) {
@@ -65,7 +83,9 @@ public class SwtKeyboardWrapper implements KeyboardWrapper, KeyListener {
             return;
         }
 
-        final char keyChar = event.character;
+        if ((event.stateMask & SWT.ALT) == 0 && event.character > 32) {
+            _upcomingCharacterEvents.add(new CharacterInputEvent(event.character));
+        }
 
         if (_lastKeyPressed != null) {
             // if this is a different key to the last key that was pressed, then
@@ -74,21 +94,21 @@ public class SwtKeyboardWrapper implements KeyboardWrapper, KeyListener {
             // 1. key 1 down
             // 2. key 2 down
             // 3. key 1 up
-            _upcomingEvents.add(new KeyEvent(_lastKeyPressed, KeyState.UP, keyChar));
+            _upcomingKeyEvents.add(new KeyEvent(_lastKeyPressed, KeyState.UP));
         }
 
         _lastKeyPressed = key;
-        _upcomingEvents.add(new KeyEvent(key, KeyState.DOWN, keyChar));
+        _upcomingKeyEvents.add(new KeyEvent(key, KeyState.DOWN));
     }
 
     public synchronized void keyReleased(final org.eclipse.swt.events.KeyEvent event) {
-        _upcomingEvents.add(new KeyEvent(fromKeyEventToKey(event), KeyState.UP, event.character));
+        _upcomingKeyEvents.add(new KeyEvent(fromKeyEventToKey(event), KeyState.UP));
         _lastKeyPressed = null;
     }
 
     /**
      * Convert from SWT key event to Ardor3D Key. Override to provide additional or custom behavior.
-     * 
+     *
      * @param e
      *            the SWT KeyEvent received by the input system.
      * @return an Ardor3D Key, to be forwarded to the Predicate/Trigger system.
@@ -102,11 +122,26 @@ public class SwtKeyboardWrapper implements KeyboardWrapper, KeyListener {
         @Override
         protected KeyEvent computeNext() {
             synchronized (SwtKeyboardWrapper.this) {
-                if (_upcomingEvents.isEmpty()) {
+                if (_upcomingKeyEvents.isEmpty()) {
                     return endOfData();
                 }
 
-                return _upcomingEvents.poll();
+                return _upcomingKeyEvents.poll();
+            }
+        }
+    }
+
+    private class SwtCharacterIterator extends AbstractIterator<CharacterInputEvent>
+            implements PeekingIterator<CharacterInputEvent> {
+
+        @Override
+        protected CharacterInputEvent computeNext() {
+            synchronized (SwtKeyboardWrapper.this) {
+                if (_upcomingCharacterEvents.isEmpty()) {
+                    return endOfData();
+                }
+
+                return _upcomingCharacterEvents.poll();
             }
         }
     }

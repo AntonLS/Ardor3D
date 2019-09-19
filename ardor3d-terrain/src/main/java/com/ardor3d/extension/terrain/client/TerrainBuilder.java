@@ -1,32 +1,31 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.terrain.client;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
 
 import com.ardor3d.extension.terrain.util.BresenhamYUpGridTracer;
+import com.ardor3d.extension.terrain.util.PriorityExecutors;
 import com.ardor3d.extension.terrain.util.TerrainGridCachePanel;
 import com.ardor3d.extension.terrain.util.TextureGridCachePanel;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.renderer.Camera;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 public class TerrainBuilder {
@@ -45,17 +44,28 @@ public class TerrainBuilder {
     private int clipmapTextureCount = 20;
     private int clipmapTextureSize = 128;
 
-    private int gridCacheThreadCount = 10;
-
     private int mapId = -1;
 
     private boolean showDebugPanels = false;
 
-    private final List<TextureSource> extraTextureSources = Lists.newArrayList();
+    private final List<TextureSource> extraTextureSources = new ArrayList<>();
+    private final ExecutorService tileThreadService;
 
     public TerrainBuilder(final TerrainDataProvider terrainDataProvider, final Camera camera) {
+        this(terrainDataProvider, camera, //
+                PriorityExecutors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
+                        new ThreadFactoryBuilder() //
+                                .setThreadFactory(Executors.defaultThreadFactory())//
+                                .setDaemon(true).setNameFormat("TileCacheThread-%s")//
+                                .build()));
+    }
+
+    public TerrainBuilder(final TerrainDataProvider terrainDataProvider, final Camera camera,
+            final ExecutorService threadService) {
         this.terrainDataProvider = terrainDataProvider;
         this.camera = camera;
+
+        tileThreadService = threadService;
     }
 
     public void addTextureConnection(final TextureSource textureSource) {
@@ -112,23 +122,18 @@ public class TerrainBuilder {
 
         logger.info("server clipmapLevels: " + clipmapLevels);
 
-        final List<TerrainCache> cacheList = Lists.newArrayList();
+        final List<TerrainCache> cacheList = new ArrayList<>();
         TerrainCache parentCache = null;
 
         final int baseLevel = Math.max(clipmapLevels - clipLevelCount, 0);
-        int level = clipLevelCount - 1;
+        int meshLevel = clipLevelCount - 1;
 
         logger.info("baseLevel: " + baseLevel);
-        logger.info("level: " + level);
-
-        final ThreadPoolExecutor tileThreadService = new ThreadPoolExecutor(gridCacheThreadCount, gridCacheThreadCount,
-                0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(), new ThreadFactoryBuilder()
-                        .setThreadFactory(Executors.defaultThreadFactory()).setDaemon(true)
-                        .setNameFormat("TerrainTileThread-%s").setPriority(Thread.MIN_PRIORITY).build());
+        logger.info("meshLevel: " + meshLevel);
 
         for (int i = baseLevel; i < clipmapLevels; i++) {
             final TerrainCache gridCache = new TerrainGridCache(parentCache, cacheSize, terrainSource, tileSize,
-                    clipmapTerrainSize, terrainConfiguration, level--, i, tileThreadService);
+                    clipmapTerrainSize, terrainConfiguration, meshLevel--, i, tileThreadService);
 
             parentCache = gridCache;
             cacheList.add(gridCache);
@@ -167,22 +172,17 @@ public class TerrainBuilder {
 
         logger.info("server clipmapLevels: " + clipmapLevels);
 
-        final List<TextureCache> cacheList = Lists.newArrayList();
+        final List<TextureCache> cacheList = new ArrayList<>();
         TextureCache parentCache = null;
         final int baseLevel = Math.max(clipmapLevels - textureClipLevelCount, 0);
-        int level = textureClipLevelCount - 1;
+        int meshLevel = textureClipLevelCount - 1;
 
         logger.info("baseLevel: " + baseLevel);
-        logger.info("level: " + level);
-
-        final ThreadPoolExecutor tileThreadService = new ThreadPoolExecutor(gridCacheThreadCount, gridCacheThreadCount,
-                0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(), new ThreadFactoryBuilder()
-                        .setThreadFactory(Executors.defaultThreadFactory()).setDaemon(true)
-                        .setNameFormat("TextureTileThread-%s").setPriority(Thread.MIN_PRIORITY).build());
+        logger.info("meshLevel: " + meshLevel);
 
         for (int i = baseLevel; i < clipmapLevels; i++) {
             final TextureCache gridCache = new TextureGridCache(parentCache, cacheSize, textureSource, tileSize,
-                    clipmapTextureSize, textureConfiguration, level--, i, tileThreadService);
+                    clipmapTextureSize, textureConfiguration, meshLevel--, i, tileThreadService);
 
             parentCache = gridCache;
             cacheList.add(gridCache);
@@ -191,7 +191,8 @@ public class TerrainBuilder {
 
         logger.info("client clipmapLevels: " + cacheList.size());
 
-        final TextureClipmap textureClipmap = new TextureClipmap(cacheList, clipmapTextureSize, textureConfiguration);
+        final TextureClipmap textureClipmap = new TextureClipmap(cacheList, clipmapTextureSize, textureConfiguration,
+                textureSource);
 
         if (showDebugPanels) {
             final TextureGridCachePanel panel = new TextureGridCachePanel(cacheList, cacheSize);
@@ -266,14 +267,5 @@ public class TerrainBuilder {
 
     public int getMapId() {
         return mapId;
-    }
-
-    public TerrainBuilder setGridCacheThreadCount(final int gridCacheThreadCount) {
-        this.gridCacheThreadCount = gridCacheThreadCount;
-        return this;
-    }
-
-    public int getGridCacheThreadCount() {
-        return gridCacheThreadCount;
     }
 }

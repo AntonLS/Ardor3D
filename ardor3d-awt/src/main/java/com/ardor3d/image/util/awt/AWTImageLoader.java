@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.image.util.awt;
@@ -19,6 +19,7 @@ import java.awt.image.renderable.RenderableImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -27,11 +28,10 @@ import javax.imageio.ImageIO;
 import com.ardor3d.image.Image;
 import com.ardor3d.image.ImageDataFormat;
 import com.ardor3d.image.PixelDataType;
-import com.ardor3d.image.util.ImageLoader;
-import com.ardor3d.image.util.ImageLoaderUtil;
+import com.ardor3d.image.loader.ImageLoader;
+import com.ardor3d.image.loader.ImageLoaderUtil;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.util.geom.BufferUtils;
-import com.google.common.collect.Lists;
 
 /**
  * Image loader that makes use of AWT's ImageIO to load image file data.
@@ -49,7 +49,7 @@ public class AWTImageLoader implements ImageLoader {
 
     public static void registerLoader() {
         if (supportedFormats == null) {
-            final List<String> formats = Lists.newArrayList();
+            final List<String> formats = new ArrayList<>();
             for (String format : ImageIO.getReaderFormatNames()) {
                 format = "." + format.toUpperCase();
                 if (!formats.contains(format)) {
@@ -113,7 +113,7 @@ public class AWTImageLoader implements ImageLoader {
         scratch.put(data);
         scratch.flip();
         final Image ardorImage = new Image();
-        ardorImage.setDataFormat(grayscale ? ImageDataFormat.Luminance : hasAlpha ? ImageDataFormat.RGBA
+        ardorImage.setDataFormat(grayscale ? ImageDataFormat.Red : hasAlpha ? ImageDataFormat.RGBA
                 : ImageDataFormat.RGB);
         ardorImage.setDataType(PixelDataType.UnsignedByte);
         ardorImage.setWidth(tex.getWidth());
@@ -143,7 +143,7 @@ public class AWTImageLoader implements ImageLoader {
         scratch.put(data);
         scratch.flip();
         final Image ardorImage = new Image();
-        ardorImage.setDataFormat(grayscale ? ImageDataFormat.Luminance : hasAlpha ? ImageDataFormat.RGBA
+        ardorImage.setDataFormat(grayscale ? ImageDataFormat.Red : hasAlpha ? ImageDataFormat.RGBA
                 : ImageDataFormat.RGB);
         ardorImage.setDataType(PixelDataType.UnsignedByte);
         ardorImage.setWidth(image.getWidth());

@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.image.util;
@@ -22,7 +22,8 @@ public abstract class ImageUtils {
     }
 
     public static final TextureStoreFormat getTextureStoreFormat(final TextureStoreFormat format, final Image image) {
-        if (format != TextureStoreFormat.GuessCompressedFormat && format != TextureStoreFormat.GuessNoCompressedFormat) {
+        if (format != TextureStoreFormat.GuessCompressedFormat
+                && format != TextureStoreFormat.GuessNoCompressedFormat) {
             return format;
         }
         if (image == null) {
@@ -32,7 +33,6 @@ public abstract class ImageUtils {
         final PixelDataType type = image.getDataType();
         final ImageDataFormat dataFormat = image.getDataFormat();
         switch (dataFormat) {
-            case ColorIndex:
             case BGRA:
             case RGBA:
                 if (format == TextureStoreFormat.GuessCompressedFormat) {
@@ -51,6 +51,8 @@ public abstract class ImageUtils {
                         return TextureStoreFormat.RGBA16F;
                     case Float:
                         return TextureStoreFormat.RGBA32F;
+                    default:
+                        break;
                 }
                 break;
             case BGR:
@@ -71,6 +73,8 @@ public abstract class ImageUtils {
                         return TextureStoreFormat.RGB16F;
                     case Float:
                         return TextureStoreFormat.RGB32F;
+                    default:
+                        break;
                 }
                 break;
             case RG:
@@ -92,61 +96,8 @@ public abstract class ImageUtils {
                         return TextureStoreFormat.RG16F;
                     case Float:
                         return TextureStoreFormat.RG32F;
-                }
-                break;
-            case Luminance:
-                if (format == TextureStoreFormat.GuessCompressedFormat) {
-                    return TextureStoreFormat.CompressedLuminance;
-                }
-                switch (type) {
-                    case Byte:
-                    case UnsignedByte:
-                        return TextureStoreFormat.Luminance8;
-                    case Short:
-                    case UnsignedShort:
-                    case Int:
-                    case UnsignedInt:
-                        return TextureStoreFormat.Luminance16;
-                    case HalfFloat:
-                        return TextureStoreFormat.Luminance16F;
-                    case Float:
-                        return TextureStoreFormat.Luminance32F;
-                }
-                break;
-            case LuminanceAlpha:
-                if (format == TextureStoreFormat.GuessCompressedFormat) {
-                    return TextureStoreFormat.CompressedLuminanceAlpha;
-                }
-                switch (type) {
-                    case Byte:
-                    case UnsignedByte:
-                        return TextureStoreFormat.Luminance4Alpha4;
-                    case Short:
-                    case UnsignedShort:
-                        return TextureStoreFormat.Luminance8Alpha8;
-                    case Int:
-                    case UnsignedInt:
-                        return TextureStoreFormat.Luminance16Alpha16;
-                    case HalfFloat:
-                        return TextureStoreFormat.LuminanceAlpha16F;
-                    case Float:
-                        return TextureStoreFormat.LuminanceAlpha32F;
-                }
-                break;
-            case Alpha:
-                switch (type) {
-                    case Byte:
-                    case UnsignedByte:
-                        return TextureStoreFormat.Alpha8;
-                    case Short:
-                    case UnsignedShort:
-                    case Int:
-                    case UnsignedInt:
-                        return TextureStoreFormat.Alpha16;
-                    case HalfFloat:
-                        return TextureStoreFormat.Alpha16F;
-                    case Float:
-                        return TextureStoreFormat.Alpha32F;
+                    default:
+                        break;
                 }
                 break;
             case Red:
@@ -168,25 +119,29 @@ public abstract class ImageUtils {
                         return TextureStoreFormat.R16F;
                     case Float:
                         return TextureStoreFormat.R32F;
+                    default:
+                        break;
                 }
                 break;
-            case Intensity:
+            case Alpha:
             case Green:
             case Blue:
             case StencilIndex:
                 switch (type) {
                     case Byte:
                     case UnsignedByte:
-                        return TextureStoreFormat.Intensity8;
+                        return TextureStoreFormat.R8;
                     case Short:
                     case UnsignedShort:
                     case Int:
                     case UnsignedInt:
-                        return TextureStoreFormat.Intensity16;
+                        return TextureStoreFormat.R16;
                     case HalfFloat:
-                        return TextureStoreFormat.Intensity16F;
+                        return TextureStoreFormat.R16F;
                     case Float:
-                        return TextureStoreFormat.Intensity32F;
+                        return TextureStoreFormat.R32F;
+                    default:
+                        break;
                 }
                 break;
             case Depth:

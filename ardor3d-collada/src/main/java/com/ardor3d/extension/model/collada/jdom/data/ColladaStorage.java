@@ -1,17 +1,18 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.model.collada.jdom.data;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,6 @@ import com.ardor3d.scenegraph.Node;
 import com.ardor3d.util.export.InputCapsule;
 import com.ardor3d.util.export.OutputCapsule;
 import com.ardor3d.util.export.Savable;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
 /**
@@ -34,10 +34,10 @@ import com.google.common.collect.Multimap;
 public class ColladaStorage implements Savable {
 
     private Node _scene;
-    private final List<SkinData> _skins = Lists.newArrayList();
+    private final List<SkinData> _skins = new ArrayList<>();
     private AssetData _assetData;
 
-    private final List<AbstractAnimationChannel> _transformChannels = Lists.newArrayList();
+    private final List<AbstractAnimationChannel> _transformChannels = new ArrayList<>();
     private AnimationItem _animationItemRoot;
 
     // List of parsed color buffers, useful if collada includes multiple color channels per meshdata object
@@ -92,7 +92,7 @@ public class ColladaStorage implements Savable {
 
     /**
      * Extract all animation channels in the Collada file as a single, unified AnimationClip.
-     * 
+     *
      * @param name
      *            the name to give our new clip.
      * @return the new AnimationClip.
@@ -144,8 +144,8 @@ public class ColladaStorage implements Savable {
 
     @Override
     public void read(final InputCapsule capsule) throws IOException {
-        _assetData = (AssetData) capsule.readSavable("assetData", null);
-        _scene = (Node) capsule.readSavable("scene", null);
+        _assetData = capsule.readSavable("assetData", null);
+        _scene = capsule.readSavable("scene", null);
         _skins.addAll(capsule.readSavableList("skins", new LinkedList<SkinData>()));
         _transformChannels.clear();
         _transformChannels.addAll(capsule.readSavableList("jointChannels", new LinkedList<TransformChannel>()));

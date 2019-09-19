@@ -1,18 +1,17 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.input.awt;
 
-import static org.easymock.classextension.EasyMock.createMock;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.easymock.EasyMock.createMock;
+import static org.junit.Assert.*;
 
 import java.awt.Component;
 import java.util.Iterator;
@@ -20,9 +19,9 @@ import java.util.Iterator;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.ardor3d.input.Key;
-import com.ardor3d.input.KeyEvent;
-import com.ardor3d.input.KeyState;
+import com.ardor3d.input.keyboard.Key;
+import com.ardor3d.input.keyboard.KeyEvent;
+import com.ardor3d.input.keyboard.KeyState;
 
 public class TestAwtKeyboardWrapper {
     AwtKeyboardWrapper kw;
@@ -46,13 +45,13 @@ public class TestAwtKeyboardWrapper {
         kw.keyPressed(e1);
         kw.keyReleased(e1);
 
-        final Iterator<KeyEvent> events = kw.getEvents();
+        final Iterator<KeyEvent> events = kw.getKeyEvents();
 
         final KeyEvent event1 = events.next();
         final KeyEvent event2 = events.next();
 
         assertFalse("no more", events.hasNext());
-        assertFalse("no more", kw.getEvents().hasNext());
+        assertFalse("no more", kw.getKeyEvents().hasNext());
 
         assertEquals("key a", Key.A, event1.getKey());
         assertEquals("down", KeyState.DOWN, event1.getState());
@@ -69,13 +68,13 @@ public class TestAwtKeyboardWrapper {
         kw.keyPressed(e1);
         kw.keyPressed(e2);
 
-        final Iterator<KeyEvent> events = kw.getEvents();
+        final Iterator<KeyEvent> events = kw.getKeyEvents();
 
         final KeyEvent event1 = events.next();
         final KeyEvent event2 = events.next();
 
         assertFalse("no more", events.hasNext());
-        assertFalse("no more", kw.getEvents().hasNext());
+        assertFalse("no more", kw.getKeyEvents().hasNext());
 
         assertEquals("key a", Key.A, event1.getKey());
         assertEquals("down", KeyState.DOWN, event1.getState());

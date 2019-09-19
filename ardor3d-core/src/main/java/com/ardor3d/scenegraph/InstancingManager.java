@@ -1,39 +1,34 @@
 /**
- * Copyright (c) 2008-2010 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.scenegraph;
 
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ardor3d.math.Matrix4;
-import com.ardor3d.renderer.ContextCapabilities;
-import com.ardor3d.renderer.ContextManager;
-import com.ardor3d.renderer.RenderContext;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
-import com.ardor3d.util.Ardor3dException;
 import com.ardor3d.util.geom.BufferUtils;
-import com.google.common.collect.Lists;
 
 public class InstancingManager {
 
     private int _maxBatchSize = 30;
-    private final List<Mesh> _visibleMeshes = Lists.newArrayListWithCapacity(_maxBatchSize);
+    private final List<Mesh> _visibleMeshes = new ArrayList<>(_maxBatchSize);
     private FloatBuffer _transformBuffer;
     private int _primCount;
     private int _meshesToDraw = 0;
 
     /**
      * Register a mesh for instancing for this current frame (internal use only)
-     * 
+     *
      * @param mesh
      */
     public void registerMesh(final Mesh mesh) {
@@ -83,7 +78,7 @@ public class InstancingManager {
     /**
      * Split the batch in multiple batches if number of visible meshes exceeds this amount. Using larger batches will
      * lead to better performance, although you might overflow the uniform space of the shader/videocard (crashes)
-     * 
+     *
      * @return maximum batch size
      */
     public int getMaxBatchSize() {
@@ -93,7 +88,7 @@ public class InstancingManager {
     /**
      * Split the batch in multiple batches if number of visible meshes exceeds this amount. Using larger batches will
      * lead to better performance, although you might overflow the uniform space of the shader/videocard (crashes)
-     * 
+     *
      * @param maxBatchSize
      *            maximum batch size
      */
@@ -107,31 +102,25 @@ public class InstancingManager {
 
     /**
      * Applies all instancing info to the mesh and returns if the current render call is allowed to continue
-     * 
+     *
      * @param mesh
      * @param renderer
-     * @param shader
      * @return continue rendering or skip rendering all together
      */
-    public boolean apply(final Mesh mesh, final Renderer renderer, final GLSLShaderObjectsState shader) {
-        final RenderContext context = ContextManager.getCurrentContext();
-        final ContextCapabilities caps = context.getCapabilities();
-
-        if (!caps.isGeometryInstancingSupported()) {
-            throw new Ardor3dException("Geometry instancing not supported for current graphics configuration");
-        }
-
-        if (_meshesToDraw <= 0) {
-            // reset for next draw call
-            _primCount = -1;
-            shader.setUniform("nrOfInstances", -1);
-            _visibleMeshes.clear();
-            return false;
-        }
-
-        shader.setUniform("transforms", fillTransformBuffer(), 4);
-        shader.setUniform("nrOfInstances", getPrimitiveCount());
-        return true;
+    public boolean apply(final Mesh mesh, final Renderer renderer) {
+        // TODO: Reimplement using new Material system
+        return false;
+        // if (_meshesToDraw <= 0) {
+//            // reset for next draw call
+//            _primCount = -1;
+//            shader.setUniform("nrOfInstances", -1);
+//            _visibleMeshes.clear();
+//            return false;
+//        }
+//
+//        shader.setUniform("transforms", fillTransformBuffer(), 4);
+//        shader.setUniform("nrOfInstances", getPrimitiveCount());
+//        return true;
     }
 
 }

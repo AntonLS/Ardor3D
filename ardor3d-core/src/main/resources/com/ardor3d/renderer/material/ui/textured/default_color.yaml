@@ -1,0 +1,20 @@
+--- # ui elements that are textured and apply default color
+techniques: 
+  passes: 
+      - 
+        attributes:
+          - key: vertex
+          - key: uv0
+          
+        uniforms: 
+          - builtIn: [model, view, projection, defaultColor, textureMatrix0]
+
+        shaders: 
+          Vertex: 
+            source: unlit/unlit.vert
+            defines: [UV_COUNT 1]
+
+          Fragment:
+            source: unlit/unlit_modulate.frag
+            defines: [UV_COUNT 1]
+            

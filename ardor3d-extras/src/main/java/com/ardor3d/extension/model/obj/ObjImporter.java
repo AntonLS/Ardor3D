@@ -1,17 +1,18 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.model.obj;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -21,11 +22,9 @@ import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.util.TextureManager;
-import com.ardor3d.util.geom.GeometryTool;
 import com.ardor3d.util.resource.ResourceLocator;
 import com.ardor3d.util.resource.ResourceLocatorTool;
 import com.ardor3d.util.resource.ResourceSource;
-import com.google.common.collect.Lists;
 
 /**
  * Wavefront OBJ importer. See <a href="http://local.wasp.uwa.edu.au/~pbourke/dataformats/obj/">the format spec</a>
@@ -103,7 +102,7 @@ public class ObjImporter {
 
     /**
      * Reads a Wavefront OBJ file from the given resource
-     * 
+     *
      * @param resource
      *            the name of the resource to find.
      * @return an ObjGeometryStore data object containing the scene and other useful elements.
@@ -125,27 +124,14 @@ public class ObjImporter {
 
     /**
      * Reads a Wavefront OBJ file from the given resource
-     * 
+     *
      * @param resource
      *            the name of the resource to find.
      * @return an ObjGeometryStore data object containing the scene and other useful elements.
      */
     public ObjGeometryStore load(final ResourceSource resource) {
-        return load(resource, new GeometryTool());
-    }
-
-    /**
-     * Reads a Wavefront OBJ file from the given resource
-     * 
-     * @param resource
-     *            the name of the resource to find.
-     * @param geometryTool
-     *            the geometry tool used to minimize the vertex count.
-     * @return an ObjGeometryStore data object containing the scene and other useful elements.
-     */
-    public ObjGeometryStore load(final ResourceSource resource, final GeometryTool geometryTool) {
         try {
-            final ObjGeometryStore store = new ObjGeometryStore(geometryTool);
+            final ObjGeometryStore store = new ObjGeometryStore();
             long currentSmoothGroup = -1;
 
             final BufferedReader reader = new BufferedReader(new InputStreamReader(resource.openStream()));
@@ -218,7 +204,7 @@ public class ObjImporter {
                 else if ("cstype".equals(keyword)) {
                     // TODO: Add support for cstype
                     ObjImporter.logger
-                            .warning("ObjModelImporter: cstype not supported.  (line " + lineNo + ") " + line);
+                    .warning("ObjModelImporter: cstype not supported.  (line " + lineNo + ") " + line);
                 }
 
                 // if degree
@@ -319,7 +305,7 @@ public class ObjImporter {
                     }
 
                     // Each token corresponds to 1 vertex entry
-                    final List<ObjIndexSet> indices = Lists.newArrayList();
+                    final List<ObjIndexSet> indices = new ArrayList<>();
                     for (int i = 1; i < tokens.length; i++) {
                         indices.add(new ObjIndexSet(tokens[i], store.getDataStore(), currentSmoothGroup));
                     }
@@ -334,7 +320,7 @@ public class ObjImporter {
                     }
 
                     // Each token corresponds to 1 vertex entry and possibly one texture entry
-                    final List<ObjIndexSet> indices = Lists.newArrayList();
+                    final List<ObjIndexSet> indices = new ArrayList<>();
                     for (int i = 1; i < tokens.length; i++) {
                         indices.add(new ObjIndexSet(tokens[i], store.getDataStore(), currentSmoothGroup));
                     }
@@ -349,7 +335,7 @@ public class ObjImporter {
                     }
 
                     // Each token corresponds to 1 vertex entry and possibly one texture entry and normal entry.
-                    final List<ObjIndexSet> indices = Lists.newArrayList();
+                    final List<ObjIndexSet> indices = new ArrayList<>();
                     for (int i = 1; i < tokens.length; i++) {
                         indices.add(new ObjIndexSet(tokens[i], store.getDataStore(), currentSmoothGroup));
                     }
@@ -385,7 +371,7 @@ public class ObjImporter {
 
     /**
      * Load a .mtl resource
-     * 
+     *
      * @param fileName
      *            the name of the mtl resource to load.
      * @param modelSource
@@ -411,7 +397,7 @@ public class ObjImporter {
 
     /**
      * Load a .mtl resource
-     * 
+     *
      * @param resource
      *            the mtl file to load, as a ResourceSource
      * @param store

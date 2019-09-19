@@ -1,0 +1,38 @@
+---
+techniques: 
+  passes: 
+      - 
+        attributes:
+          - key: vertex
+          
+        uniforms: 
+          - builtIn: [modelViewProj, defaultColor, viewSize, viewOffset]
+          - 
+            shaderKey: lineWidth
+            type: Float1
+            source: SpatialProperty
+            defaultValue: 1.0
+          - 
+            shaderKey: featherWidth
+            type: Float1
+            source: SpatialProperty
+            defaultValue: 1.0
+          - 
+            shaderKey: stippleFactor
+            type: Float1
+            source: SpatialProperty
+            defaultValue: 1.0
+          - 
+            shaderKey: stipplePattern
+            type: UInt1
+            source: SpatialProperty
+            defaultValue: 0xffff
+
+        shaders: 
+          Vertex: 
+            source: line/line.vert
+          Geometry:
+            source: line/lines_no_miter.geom
+            define: ANTIALIAS
+          Fragment: 
+            source: line/line_modulate.frag

@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.pipeline;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -26,6 +29,7 @@ import com.ardor3d.extension.animation.skeletal.clip.AnimationClip;
 import com.ardor3d.extension.animation.skeletal.state.loader.InputStore;
 import com.ardor3d.extension.animation.skeletal.state.loader.JSLayerImporter;
 import com.ardor3d.extension.animation.skeletal.util.MissingCallback;
+import com.ardor3d.extension.effect.EffectUtils;
 import com.ardor3d.extension.model.collada.jdom.ColladaImporter;
 import com.ardor3d.extension.model.collada.jdom.data.ColladaStorage;
 import com.ardor3d.extension.model.util.nvtristrip.NvTriangleStripper;
@@ -37,13 +41,12 @@ import com.ardor3d.math.Vector3;
 import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.RenderContext;
 import com.ardor3d.renderer.Renderer;
+import com.ardor3d.renderer.material.MaterialManager;
+import com.ardor3d.renderer.material.RenderMaterial;
 import com.ardor3d.renderer.state.CullState;
 import com.ardor3d.renderer.state.CullState.Face;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
-import com.ardor3d.scenegraph.hint.DataMode;
-import com.ardor3d.scenegraph.visitor.Visitor;
 import com.ardor3d.util.GameTaskQueue;
 import com.ardor3d.util.GameTaskQueueManager;
 import com.ardor3d.util.ReadOnlyTimer;
@@ -51,24 +54,24 @@ import com.ardor3d.util.geom.MeshCombiner;
 import com.ardor3d.util.resource.ResourceLocatorTool;
 import com.ardor3d.util.resource.ResourceSource;
 import com.ardor3d.util.resource.URLResourceSource;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * Illustrates loading several animations from Collada and arranging them in an animation state machine.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.pipeline.AnimationDemoExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/pipeline_AnimationDemoExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/pipeline_AnimationDemoExample.jpg", //
+        maxHeapMemory = 64)
 public class AnimationDemoExample extends ExampleBase {
 
     private static final long MIN_STATE_TIME = 5000;
 
     static AnimationDemoExample instance;
 
-    private final List<AnimationManager> managers = Lists.newArrayList();
-    private final List<AnimationInfo> animInfo = Lists.newArrayList();
-    private final Map<SkeletonPose, SkinnedMesh> poseToMesh = Maps.newIdentityHashMap();
+    private final List<AnimationManager> managers = new ArrayList<>();
+    private final List<AnimationInfo> animInfo = new ArrayList<>();
+    private final Map<SkeletonPose, SkinnedMesh> poseToMesh = new IdentityHashMap<>();
+
+    private RenderMaterial matGPU;
 
     public static void main(final String[] args) {
         ExampleBase.start(AnimationDemoExample.class);
@@ -80,6 +83,8 @@ public class AnimationDemoExample extends ExampleBase {
 
     @Override
     protected void initExample() {
+        EffectUtils.addDefaultResourceLocators();
+
         _canvas.setTitle("Ardor3D - Animation Demo Example - Skeletons Patrol!");
         final CanvasRenderer canvasRenderer = _canvas.getCanvasRenderer();
         final RenderContext renderContext = canvasRenderer.getRenderContext();
@@ -97,7 +102,6 @@ public class AnimationDemoExample extends ExampleBase {
         cam.setLocation(197, 113, -126);
         cam.lookAt(new Vector3(157, 91, -174), Vector3.UNIT_Y);
         cam.setFrustumPerspective(45.0, cam.getWidth() / (double) cam.getHeight(), .25, 900);
-        cam.update();
 
         // speed up wasd control a little
         _controlHandle.setMoveSpeed(200);
@@ -128,6 +132,9 @@ public class AnimationDemoExample extends ExampleBase {
     private SkinnedMesh loadMainSkeleton() {
         SkinnedMesh skeleton = null;
         try {
+            SkinnedMesh.addDefaultResourceLocators();
+            matGPU = MaterialManager.INSTANCE.findMaterial("lit/textured/basic_skinmesh_phong.yaml");
+
             final long time = System.currentTimeMillis();
             final ColladaImporter colladaImporter = new ColladaImporter();
 
@@ -142,21 +149,6 @@ public class AnimationDemoExample extends ExampleBase {
             System.out.println("Importing: " + mainFile);
             System.out.println("Took " + (System.currentTimeMillis() - time) + " ms");
 
-            final GLSLShaderObjectsState gpuShader = new GLSLShaderObjectsState();
-            gpuShader.setEnabled(true);
-            try {
-                gpuShader.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(AnimationDemoExample.class,
-                        "com/ardor3d/extension/animation/skeletal/skinning_gpu_texture.vert"));
-                gpuShader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(
-                        AnimationDemoExample.class,
-                        "com/ardor3d/extension/animation/skeletal/skinning_gpu_texture.frag"));
-
-                gpuShader.setUniform("texture", 0);
-                gpuShader.setUniform("lightDirection", new Vector3(1, 1, 1).normalizeLocal());
-            } catch (final IOException ioe) {
-                ioe.printStackTrace();
-            }
-
             // OPTIMIZATION: SkinnedMesh combining... Useful in our case because the skeleton model is composed of 2
             // separate meshes.
             skeleton = (SkinnedMesh) MeshCombiner.combine(colladaNode, new SkinnedMeshCombineLogic());
@@ -164,14 +156,11 @@ public class AnimationDemoExample extends ExampleBase {
             // primeModel = colladaNode;
 
             // OPTIMIZATION: turn on the buffers in our skeleton so they can be shared. (reuse ids)
-            skeleton.acceptVisitor(new Visitor() {
-                @Override
-                public void visit(final Spatial spatial) {
-                    if (spatial instanceof SkinnedMesh) {
-                        final SkinnedMesh skinnedSpatial = (SkinnedMesh) spatial;
-                        skinnedSpatial.recreateWeightAttributeBuffer();
-                        skinnedSpatial.recreateJointAttributeBuffer();
-                    }
+            skeleton.acceptVisitor((final Spatial spatial) -> {
+                if (spatial instanceof SkinnedMesh) {
+                    final SkinnedMesh skinnedSpatial = (SkinnedMesh) spatial;
+                    skinnedSpatial.recreateWeightAttributeBuffer();
+                    skinnedSpatial.recreateJointAttributeBuffer();
                 }
             }, true);
 
@@ -184,10 +173,7 @@ public class AnimationDemoExample extends ExampleBase {
             final CullState cullState = new CullState();
             cullState.setCullFace(Face.Back);
             skeleton.setRenderState(cullState);
-
-            skeleton.getSceneHints().setDataMode(DataMode.VBO);
-            gpuShader.setUseAttributeVBO(true);
-            skeleton.setGPUShader(gpuShader);
+            skeleton.setRenderMaterial(matGPU);
             skeleton.setUseGPU(true);
 
         } catch (final Exception ex) {
@@ -196,7 +182,7 @@ public class AnimationDemoExample extends ExampleBase {
         return skeleton;
     }
 
-    private final Map<String, AnimationClip> animationStore = Maps.newHashMap();
+    private final Map<String, AnimationClip> animationStore = new HashMap<>();
 
     private AnimationManager createAnimationManager(final SkeletonPose pose) {
         // Make our manager

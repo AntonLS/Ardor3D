@@ -1,0 +1,18 @@
+---
+techniques: 
+  passes: 
+      - 
+        attributes:
+          - key: vertex
+          - key: normal
+          - key: color
+          
+        uniforms: 
+          - builtIn: [model, view, projection, normalMat, cameraLoc, lights4, colorSurface]
+            
+        shaders: 
+          Vertex: 
+            source: phong/phong.vert
+            defines: [VERT_COLORS]
+          Fragment:
+            source: phong/phong_modulate.frag

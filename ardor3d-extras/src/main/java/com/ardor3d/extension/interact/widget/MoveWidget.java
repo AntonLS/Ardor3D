@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.interact.widget;
@@ -14,9 +14,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.ardor3d.extension.interact.InteractManager;
 import com.ardor3d.framework.Canvas;
-import com.ardor3d.input.ButtonState;
-import com.ardor3d.input.MouseState;
 import com.ardor3d.input.logical.TwoInputStates;
+import com.ardor3d.input.mouse.MouseCursor;
+import com.ardor3d.input.mouse.MouseState;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Line3;
 import com.ardor3d.math.MathUtils;
@@ -35,9 +35,12 @@ import com.ardor3d.renderer.state.ZBufferState;
 import com.ardor3d.renderer.state.ZBufferState.TestFunction;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
+import com.ardor3d.util.MaterialUtil;
 
 public class MoveWidget extends AbstractInteractWidget {
-    public static double MIN_SCALE = 0.000001;
+
+    public static double DEFAULT_SCALE = 1.0;
+    public static double MOUSEOVER_SCALE = 1.1;
 
     protected InteractArrow _lastArrow = null;
 
@@ -51,7 +54,10 @@ public class MoveWidget extends AbstractInteractWidget {
 
     protected InteractMatrix _interactMatrix = InteractMatrix.World;
 
-    public MoveWidget() {
+    public static MouseCursor DEFAULT_CURSOR = null;
+
+    public MoveWidget(final IFilterList filterList) {
+        super(filterList);
         _handle = new Node("moveHandle");
 
         final BlendState blend = new BlendState();
@@ -64,6 +70,10 @@ public class MoveWidget extends AbstractInteractWidget {
 
         _handle.getSceneHints().setRenderBucketType(RenderBucketType.Transparent);
         _handle.updateGeometricState(0);
+
+        if (MoveWidget.DEFAULT_CURSOR != null) {
+            setMouseOverCallback(new SetCursorCallback(MoveWidget.DEFAULT_CURSOR));
+        }
     }
 
     public MoveWidget withXAxis() {
@@ -85,6 +95,7 @@ public class MoveWidget extends AbstractInteractWidget {
         final Quaternion rotate = new Quaternion().fromAngleAxis(MathUtils.HALF_PI, Vector3.UNIT_Y);
         _xArrow.setRotation(rotate);
         _handle.attachChild(_xArrow);
+        MaterialUtil.autoMaterials(_xArrow);
         return this;
     }
 
@@ -107,6 +118,7 @@ public class MoveWidget extends AbstractInteractWidget {
         final Quaternion rotate = new Quaternion().fromAngleAxis(MathUtils.HALF_PI, Vector3.NEG_UNIT_X);
         _yArrow.setRotation(rotate);
         _handle.attachChild(_yArrow);
+        MaterialUtil.autoMaterials(_yArrow);
         return this;
     }
 
@@ -127,30 +139,16 @@ public class MoveWidget extends AbstractInteractWidget {
         _zArrow = new InteractArrow("zMoveArrow", scale, width, lengthGap, tipGap);
         _zArrow.setDefaultColor(color);
         _handle.attachChild(_zArrow);
+        MaterialUtil.autoMaterials(_zArrow);
         return this;
-    }
-
-    @Override
-    public void targetChanged(final InteractManager manager) {
-        if (_dragging) {
-            endDrag(manager);
-        }
-        final Spatial target = manager.getSpatialTarget();
-        if (target != null) {
-            _handle.setScale(Math.max(MoveWidget.MIN_SCALE, target.getWorldBound().getRadius()
-                    + target.getWorldTranslation().subtract(target.getWorldBound().getCenter(), _calcVec3A).length()));
-        }
-        targetDataUpdated(manager);
     }
 
     @Override
     public void targetDataUpdated(final InteractManager manager) {
         final Spatial target = manager.getSpatialTarget();
         if (target == null) {
-            _handle.setScale(1.0);
             _handle.setRotation(Matrix3.IDENTITY);
         } else {
-            // update scale of widget using bounding radius
             target.updateGeometricState(0);
 
             // update arrow rotations from target
@@ -160,6 +158,14 @@ public class MoveWidget extends AbstractInteractWidget {
                 _handle.setRotation(Matrix3.IDENTITY);
             }
         }
+
+        _handle.setScale(calculateHandleScale(manager));
+    }
+
+    @Override
+    protected double calculateHandleScale(final InteractManager manager) {
+        return super.calculateHandleScale(manager)
+                * (_mouseOver ? MoveWidget.MOUSEOVER_SCALE : MoveWidget.DEFAULT_SCALE);
     }
 
     @Override
@@ -178,52 +184,24 @@ public class MoveWidget extends AbstractInteractWidget {
     @Override
     public void processInput(final Canvas source, final TwoInputStates inputStates, final AtomicBoolean inputConsumed,
             final InteractManager manager) {
-        // Make sure we have something to modify
-        if (manager.getSpatialTarget() == null) {
-            return;
-        }
 
-        // Make sure we are dragging.
+        final Camera camera = source.getCanvasRenderer().getCamera();
         final MouseState current = inputStates.getCurrent().getMouseState();
         final MouseState previous = inputStates.getPrevious().getMouseState();
 
-        if (current.getButtonState(_dragButton) != ButtonState.DOWN) {
-            if (_dragging) {
-                endDrag(manager);
-            }
-            return;
-        }
-        // if we're already dragging, make sure we only act on drags that started with a positive pick.
-        else if (!current.getButtonsPressedSince(previous).contains(_dragButton) && !_dragging) {
-            return;
-        }
+        // first process mouse over state
+        checkMouseOver(source, current, manager);
 
-        final Camera camera = source.getCanvasRenderer().getCamera();
-        final Vector2 oldMouse = new Vector2(previous.getX(), previous.getY());
-        // Make sure we are dragging over the handle
-        if (!_dragging) {
-            findPick(oldMouse, camera);
-            final Vector3 lastPick = getLastPick();
-            if (lastPick == null) {
-                return;
-            } else {
-                beginDrag(manager);
-            }
-        }
-
-        // we've established that our mouse is being held down, and started over our arrow. So consume.
-        inputConsumed.set(true);
-
-        // check if we've moved at all
-        if (current == previous || current.getDx() == 0 && current.getDy() == 0) {
+        // Now check drag status
+        if (!checkShouldDrag(camera, current, previous, inputConsumed, manager)) {
             return;
         }
 
         // act on drag
-        final Spatial picked = (Spatial) _results.getPickData(0).getTarget();
-        if (picked != null && picked.getParent() instanceof InteractArrow) {
-            final InteractArrow arrow = (InteractArrow) picked.getParent();
+        if (_lastDragSpatial != null && _lastDragSpatial.getParent() instanceof InteractArrow) {
+            final InteractArrow arrow = (InteractArrow) _lastDragSpatial.getParent();
             _lastArrow = arrow;
+            final Vector2 oldMouse = new Vector2(previous.getX(), previous.getY());
             final Vector3 loc = getNewOffset(arrow, oldMouse, current, camera, manager);
             final Transform transform = manager.getSpatialState().getTransform();
             transform.setTranslation(loc.addLocal(transform.getTranslation()));

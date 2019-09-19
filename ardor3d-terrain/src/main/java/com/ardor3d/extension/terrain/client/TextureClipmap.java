@@ -1,23 +1,23 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.terrain.client;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.ardor3d.extension.terrain.util.DoubleBufferedList;
@@ -28,19 +28,16 @@ import com.ardor3d.image.Image;
 import com.ardor3d.image.ImageDataFormat;
 import com.ardor3d.image.PixelDataType;
 import com.ardor3d.image.Texture;
-import com.ardor3d.image.Texture3D;
 import com.ardor3d.image.Texture.MagnificationFilter;
 import com.ardor3d.image.Texture.MinificationFilter;
+import com.ardor3d.image.Texture3D;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.math.type.ReadOnlyVector3;
+import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
 import com.ardor3d.util.TextureKey;
 import com.ardor3d.util.geom.BufferUtils;
-import com.ardor3d.util.resource.ResourceLocatorTool;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 
 /**
  * An implementation of texture clipmapping
@@ -49,6 +46,7 @@ public class TextureClipmap {
     /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(TextureClipmap.class.getName());
 
+    private final TextureSource source;
     private final int textureSize;
     private final int textureLevels;
     private final int validLevels;
@@ -58,15 +56,16 @@ public class TextureClipmap {
     private float scale = 1f;
 
     private Texture3D textureClipmap;
-    private GLSLShaderObjectsState textureClipmapShader;
 
-    private final List<LevelData> levelDataList = Lists.newArrayList();
+    private final List<LevelData> levelDataList = new ArrayList<>();
 
     private final FloatBuffer sliceDataBuffer;
+    private final FloatBuffer sliceDataCopy;
 
     private final Vector3 eyePosition = new Vector3();
 
     private boolean showDebug = false;
+    private boolean enabled = true;
 
     private final List<TextureCache> cacheList;
 
@@ -78,7 +77,7 @@ public class TextureClipmap {
     /** Timers for mailbox updates */
     private long oldTime = 0;
     private long updateTimer = 0;
-    private final long updateThreashold = 300;
+    private final long updateThreshold = 300;
 
     private final Comparator<Region> regionSorter = new Comparator<Region>() {
         @Override
@@ -87,10 +86,23 @@ public class TextureClipmap {
         }
     };
 
+    /**
+     * Construct a new TextureClipmap with the given values.
+     *
+     * @param cacheList
+     *            List of caches used to provide the clipmap with texture data.
+     * @param textureSize
+     *            our
+     * @param textureConfiguration
+     * @param source
+     *            the TextureSource this clipmap represents. This can conceivably be null if the cacheList was built in
+     *            some method that did not involve a texturesource (or involved multiple.)
+     */
     public TextureClipmap(final List<TextureCache> cacheList, final int textureSize,
-            final TextureConfiguration textureConfiguration) {
+            final TextureConfiguration textureConfiguration, final TextureSource source) {
         this.cacheList = cacheList;
         this.textureSize = textureSize;
+        this.source = source;
         validLevels = cacheList.size();
         useAlpha = textureConfiguration.isUseAlpha();
         colorBits = useAlpha ? 4 : 3;
@@ -107,6 +119,7 @@ public class TextureClipmap {
         TextureClipmap.logger.info("3D Texture depth: " + textureLevels);
 
         sliceDataBuffer = BufferUtils.createFloatBuffer(textureLevels * 2);
+        sliceDataCopy = BufferUtils.createFloatBuffer(textureLevels * 2);
 
         for (int i = 0; i < validLevels; i++) {
             levelDataList.add(new LevelData(i, textureSize));
@@ -115,11 +128,30 @@ public class TextureClipmap {
         createTexture();
     }
 
-    private final List<Long> timers = Lists.newArrayList();
+    private final List<Long> timers = new ArrayList<>();
 
-    public void update(final Renderer renderer, final ReadOnlyVector3 position) {
-        eyePosition.set(position);
-        textureClipmapShader.setUniform("eyePosition", eyePosition);
+    public void prepareToDrawClips(final Terrain terrain) {
+        sliceDataCopy.clear();
+        sliceDataCopy.put(sliceDataBuffer);
+        terrain.setProperty("sliceOffset", sliceDataBuffer.clear());
+
+        terrain.setProperty("minLevel", currentShownLevels);
+        terrain.setProperty("scale", 1f / getScale());
+        terrain.setProperty("levels", getTextureLevels());
+        terrain.setProperty("validLevels", getValidLevels() - 1);
+        terrain.setProperty("showDebug", isShowDebug() ? 1 : 0);
+    }
+
+    public void update(final Renderer renderer, final ReadOnlyVector3 eyePos) {
+        if (!isEnabled()) {
+            return;
+        }
+
+        if (textureClipmap.getTextureIdForContext(ContextManager.getCurrentContext()) == 0) {
+            return;
+        }
+
+        eyePosition.set(eyePos);
         eyePosition.multiplyLocal(textureSize / (scale * 4f * 32f));
 
         for (int unit = minVisibleLevel; unit < validLevels; unit++) {
@@ -141,8 +173,6 @@ public class TextureClipmap {
         // }
         // }
         // }
-
-        textureClipmapShader.setUniform("minLevel", (float) currentShownLevels);
 
         if (timers.size() < currentShownLevels) {
             for (int unit = 0; unit < currentShownLevels; unit++) {
@@ -173,8 +203,9 @@ public class TextureClipmap {
             }
         }
 
-        // final long t = System.nanoTime();
+        // Walk through each level of the clipmap
         for (int unit = validLevels - 1; unit >= currentShownLevels; unit--) {
+            // calculate the anchor of the clipmap using our eye pos
             float x = eyePosition.getXf();
             float y = eyePosition.getZf();
 
@@ -185,133 +216,135 @@ public class TextureClipmap {
             final int offX = MathUtils.floor(x);
             final int offY = MathUtils.floor(y);
 
+            // Get our level data for this level
             final LevelData levelData = levelDataList.get(unit);
 
+            // If our anchor has shifted, update our level data info.
             final TextureCache cache = cacheList.get(unit);
             if (levelData.x != offX || levelData.y != offY) {
                 cache.setCurrentPosition(offX, offY);
+                // this also calls updateQuick on level
                 updateLevel(renderer, levelData, offX, offY);
             }
 
+            // Check for individually updated tiles from our source
             final Set<Tile> updatedTiles = cache.handleUpdateRequests();
             if (updatedTiles != null) {
                 final int sX = offX - textureSize / 2;
                 final int sY = offY - textureSize / 2;
 
-                // System.out.println(unit + "[" + sX + "," + sY + "]: " + updatedTiles);
-
-                // TODO: this should update only what was changed
+                // XXX: Perhaps this could find out a subregion of the tile that had changed and update just that, but
+                // for now we will update the full level.
                 updateQuick(renderer, levelData, textureSize + 1, textureSize + 1, sX, sY, levelData.offsetX,
                         levelData.offsetY, textureSize, textureSize);
             }
 
-            x = MathUtils.moduloPositive(x, 2);
-            y = MathUtils.moduloPositive(y, 2);
-
+            // calculate values used to shift texcoords in shader
             int shiftX = levelData.x;
             int shiftY = levelData.y;
             shiftX = MathUtils.moduloPositive(shiftX, 2);
             shiftY = MathUtils.moduloPositive(shiftY, 2);
 
-            x -= shiftX;
-            y -= shiftY;
-
-            x += levelData.offsetX;
-            y += levelData.offsetY;
-
-            x /= textureSize;
-            y /= textureSize;
+            x = (MathUtils.moduloPositive(x, 2) - shiftX + levelData.offsetX) / textureSize;
+            y = (MathUtils.moduloPositive(y, 2) - shiftY + levelData.offsetY) / textureSize;
 
             sliceDataBuffer.put(unit * 2, x);
             sliceDataBuffer.put(unit * 2 + 1, y);
         }
 
         sliceDataBuffer.rewind();
-        textureClipmapShader.setUniform("sliceOffset", sliceDataBuffer, 2);
 
         updateFromMailbox(renderer);
     }
 
     private void updateFromMailbox(final Renderer renderer) {
-        if (updateTimer > updateThreashold) {
-            final List<Region> regionList = mailBox.switchAndGet();
-            if (!regionList.isEmpty()) {
-                for (int unit = validLevels - 1; unit >= 0; unit--) {
-                    final LevelData levelData = levelDataList.get(unit);
-                    // final int pow = (int) Math.pow(2, unit);
-                    final int sX = levelData.x - textureSize / 2;
-                    final int sY = levelData.y - textureSize / 2;
-                    levelData.clipRegion.setX(sX);
-                    levelData.clipRegion.setY(sY);
-                }
 
-                for (int i = regionList.size() - 1; i >= 0; i--) {
-                    final Region region = regionList.get(i);
-                    final Region clipRegion = levelDataList.get(region.getLevel()).clipRegion;
+        if (updateTimer < updateThreshold) {
+            updateThrottleTimer();
+            return;
+        }
 
-                    if (clipRegion.intersects(region)) {
-                        clipRegion.intersection(region);
-                    } else {
-                        regionList.remove(i);
-                    }
-                }
+        final List<Region> regionList = mailBox.switchAndGet();
+        if (!regionList.isEmpty()) {
+            for (int unit = validLevels - 1; unit >= 0; unit--) {
+                final LevelData levelData = levelDataList.get(unit);
+                // final int pow = (int) Math.pow(2, unit);
+                final int sX = levelData.x - textureSize / 2;
+                final int sY = levelData.y - textureSize / 2;
+                levelData.clipRegion.setX(sX);
+                levelData.clipRegion.setY(sY);
+            }
 
-                Collections.sort(regionList, regionSorter);
+            for (int i = regionList.size() - 1; i >= 0; i--) {
+                final Region region = regionList.get(i);
+                final Region clipRegion = levelDataList.get(region.getLevel()).clipRegion;
 
-                final int start = regionList.size() - 1;
-                for (int i = start; i >= 0; i--) {
-                    final Region region = regionList.get(i);
-
-                    recursiveAddUpdates(regionList, region.getLevel(), region.getX(), region.getY(), region.getWidth(),
-                            region.getHeight());
-                }
-
-                for (int i = regionList.size() - 1; i >= 0; i--) {
-                    final Region region = regionList.get(i);
-                    final Region clipRegion = levelDataList.get(region.getLevel()).clipRegion;
-
-                    if (clipRegion.intersects(region)) {
-                        clipRegion.intersection(region);
-                    } else {
-                        regionList.remove(i);
-                    }
-                }
-
-                Collections.sort(regionList, regionSorter);
-
-                final Set<Integer> affectedUnits = Sets.newHashSet();
-                for (int i = regionList.size() - 1; i >= 0; i--) {
-                    final Region region = regionList.get(i);
-
-                    final int unit = region.getLevel();
-                    affectedUnits.add(unit);
-
-                    final LevelData levelData = levelDataList.get(unit);
-                    final TextureCache cache = cacheList.get(unit);
-                    final ByteBuffer imageDestination = levelData.sliceData;
-
-                    final int sX = region.getX();
-                    final int sY = region.getY();
-                    int dX = region.getX() + textureSize / 2;
-                    int dY = region.getY() + textureSize / 2;
-                    dX = MathUtils.moduloPositive(dX, textureSize);
-                    dY = MathUtils.moduloPositive(dY, textureSize);
-
-                    cache.updateRegion(imageDestination, sX, sY, dX + 1, dY + 1, region.getWidth(), region.getHeight());
-                }
-
-                for (final int unit : affectedUnits) {
-                    final LevelData levelData = levelDataList.get(unit);
-                    final ByteBuffer imageDestination = levelData.sliceData;
-
-                    // TODO: only update subpart
-                    imageDestination.rewind();
-                    renderer.updateTexture3DSubImage(textureClipmap, 0, 0, unit, textureSize, textureSize, 1,
-                            imageDestination, 0, 0, 0, textureSize, textureSize);
+                if (clipRegion.intersects(region)) {
+                    clipRegion.intersection(region);
+                } else {
+                    regionList.remove(i);
                 }
             }
-            updateTimer %= updateThreashold;
+
+            Collections.sort(regionList, regionSorter);
+
+            final int start = regionList.size() - 1;
+            for (int i = start; i >= 0; i--) {
+                final Region region = regionList.get(i);
+
+                recursiveAddUpdates(regionList, region.getLevel(), region.getX(), region.getY(), region.getWidth(),
+                        region.getHeight());
+            }
+
+            for (int i = regionList.size() - 1; i >= 0; i--) {
+                final Region region = regionList.get(i);
+                final Region clipRegion = levelDataList.get(region.getLevel()).clipRegion;
+
+                if (clipRegion.intersects(region)) {
+                    clipRegion.intersection(region);
+                } else {
+                    regionList.remove(i);
+                }
+            }
+
+            Collections.sort(regionList, regionSorter);
+
+            final Set<Integer> affectedUnits = new HashSet<>();
+            for (int i = regionList.size() - 1; i >= 0; i--) {
+                final Region region = regionList.get(i);
+
+                final int unit = region.getLevel();
+                affectedUnits.add(unit);
+
+                final LevelData levelData = levelDataList.get(unit);
+                final TextureCache cache = cacheList.get(unit);
+                final ByteBuffer imageDestination = levelData.sliceData;
+
+                final int sX = region.getX();
+                final int sY = region.getY();
+                int dX = region.getX() + textureSize / 2;
+                int dY = region.getY() + textureSize / 2;
+                dX = MathUtils.moduloPositive(dX, textureSize);
+                dY = MathUtils.moduloPositive(dY, textureSize);
+
+                cache.updateRegion(imageDestination, sX, sY, dX + 1, dY + 1, region.getWidth(), region.getHeight());
+            }
+
+            for (final int unit : affectedUnits) {
+                final LevelData levelData = levelDataList.get(unit);
+                final ByteBuffer imageDestination = levelData.sliceData;
+
+                // TODO: only update subpart
+                imageDestination.rewind();
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, 0, 0, unit, textureSize, textureSize,
+                        1, imageDestination, 0, 0, 0, textureSize, textureSize);
+            }
         }
+        updateTimer %= updateThreshold;
+        updateThrottleTimer();
+    }
+
+    private void updateThrottleTimer() {
         final long time = System.currentTimeMillis();
         updateTimer += time - oldTime;
         oldTime = time;
@@ -326,8 +359,8 @@ public class TextureClipmap {
         final Region region = new Region(level - 1, x * 2, y * 2, width * 2, height * 2);
         if (!regionList.contains(region)) {
             regionList.add(region);
-            recursiveAddUpdates(regionList, region.getLevel(), region.getX(), region.getY(), region.getWidth(), region
-                    .getHeight());
+            recursiveAddUpdates(regionList, region.getLevel(), region.getX(), region.getY(), region.getWidth(),
+                    region.getHeight());
         }
     }
 
@@ -383,8 +416,8 @@ public class TextureClipmap {
             cache.updateRegion(imageDestination, sX, sY, dX, dY, width, height);
 
             imageDestination.rewind();
-            renderer.updateTexture3DSubImage(textureClipmap, 0, 0, unit, textureSize, textureSize, 1, imageDestination,
-                    0, 0, 0, textureSize, textureSize);
+            renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, 0, 0, unit, textureSize, textureSize, 1,
+                    imageDestination, 0, 0, 0, textureSize, textureSize);
         } else if (diffX != 0 && diffY != 0) {
             // Copy three rectangles. Horizontal, vertical and corner
 
@@ -407,19 +440,19 @@ public class TextureClipmap {
                 int width1 = textureSize - dX;
 
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, dX1, 0, unit, width1, textureSize, 1,
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, dX1, 0, unit, width1, textureSize, 1,
                         imageDestination, dX1, 0, 0, textureSize, textureSize);
 
                 dX1 = 0;
                 width1 = width - width1;
 
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, dX1, 0, unit, width1, textureSize, 1,
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, dX1, 0, unit, width1, textureSize, 1,
                         imageDestination, dX1, 0, 0, textureSize, textureSize);
             } else {
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, dX, 0, unit, width, textureSize, 1, imageDestination,
-                        dX, 0, 0, textureSize, textureSize);
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, dX, 0, unit, width, textureSize, 1,
+                        imageDestination, dX, 0, 0, textureSize, textureSize);
             }
 
             sX = tmpSX;
@@ -441,19 +474,19 @@ public class TextureClipmap {
                 int height1 = textureSize - dY;
 
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, 0, dY1, unit, textureSize, height1, 1,
-                        imageDestination, 0, dY1, 0, textureSize, textureSize);
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, 0, dY1, unit, textureSize, height1,
+                        1, imageDestination, 0, dY1, 0, textureSize, textureSize);
 
                 dY1 = 0;
                 height1 = height - height1;
 
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, 0, dY1, unit, textureSize, height1, 1,
-                        imageDestination, 0, dY1, 0, textureSize, textureSize);
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, 0, dY1, unit, textureSize, height1,
+                        1, imageDestination, 0, dY1, 0, textureSize, textureSize);
             } else {
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, 0, dY, unit, textureSize, height, 1, imageDestination,
-                        0, dY, 0, textureSize, textureSize);
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, 0, dY, unit, textureSize, height, 1,
+                        imageDestination, 0, dY, 0, textureSize, textureSize);
             }
         } else if (diffX != 0) {
             // Copy vertical only
@@ -471,19 +504,19 @@ public class TextureClipmap {
                 int width1 = textureSize - dX;
 
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, dX1, 0, unit, width1, textureSize, 1,
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, dX1, 0, unit, width1, textureSize, 1,
                         imageDestination, dX1, 0, 0, textureSize, textureSize);
 
                 dX1 = 0;
                 width1 = width - width1;
 
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, dX1, 0, unit, width1, textureSize, 1,
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, dX1, 0, unit, width1, textureSize, 1,
                         imageDestination, dX1, 0, 0, textureSize, textureSize);
             } else {
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, dX, 0, unit, width, textureSize, 1, imageDestination,
-                        dX, 0, 0, textureSize, textureSize);
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, dX, 0, unit, width, textureSize, 1,
+                        imageDestination, dX, 0, 0, textureSize, textureSize);
             }
         } else if (diffY != 0) {
             // Copy horizontal only
@@ -501,60 +534,25 @@ public class TextureClipmap {
                 int height1 = textureSize - dY;
 
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, 0, dY1, unit, textureSize, height1, 1,
-                        imageDestination, 0, dY1, 0, textureSize, textureSize);
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, 0, dY1, unit, textureSize, height1,
+                        1, imageDestination, 0, dY1, 0, textureSize, textureSize);
 
                 dY1 = 0;
                 height1 = height - height1;
 
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, 0, dY1, unit, textureSize, height1, 1,
-                        imageDestination, 0, dY1, 0, textureSize, textureSize);
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, 0, dY1, unit, textureSize, height1,
+                        1, imageDestination, 0, dY1, 0, textureSize, textureSize);
             } else {
                 imageDestination.rewind();
-                renderer.updateTexture3DSubImage(textureClipmap, 0, dY, unit, textureSize, height, 1, imageDestination,
-                        0, dY, 0, textureSize, textureSize);
+                renderer.getTextureUtils().updateTexture3DSubImage(textureClipmap, 0, dY, unit, textureSize, height, 1,
+                        imageDestination, 0, dY, 0, textureSize, textureSize);
             }
         }
     }
 
     public Texture getTexture() {
         return textureClipmap;
-    }
-
-    public void reloadShader() {
-        textureClipmapShader = new GLSLShaderObjectsState();
-        try {
-            textureClipmapShader.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(TextureClipmap.class,
-                    "com/ardor3d/extension/terrain/textureClipmapShader.vert"));
-            textureClipmapShader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(
-                    TextureClipmap.class, "com/ardor3d/extension/terrain/textureClipmapShader.frag"));
-        } catch (final IOException ex) {
-            TextureClipmap.logger.logp(Level.SEVERE, getClass().getName(), "init(Renderer)", "Could not load shaders.",
-                    ex);
-        }
-        textureClipmapShader.setUniform("texture", 0);
-
-        textureClipmapShader.setUniform("scale", 1f / scale);
-        textureClipmapShader.setUniform("textureSize", (float) textureSize);
-        textureClipmapShader.setUniform("texelSize", 1f / textureSize);
-
-        textureClipmapShader.setUniform("levels", (float) textureLevels);
-        textureClipmapShader.setUniform("validLevels", (float) validLevels - 1);
-        textureClipmapShader.setUniform("minLevel", 0f);
-
-        textureClipmapShader.setUniform("showDebug", showDebug ? 1.0f : 0.0f);
-    }
-
-    public GLSLShaderObjectsState getShaderState() {
-        if (textureClipmapShader == null) {
-            reloadShader();
-        }
-        return textureClipmapShader;
-    }
-
-    public void setShaderState(final GLSLShaderObjectsState textureClipmapShader) {
-        this.textureClipmapShader = textureClipmapShader;
     }
 
     public static int clamp(final int x, final int low, final int high) {
@@ -565,8 +563,6 @@ public class TextureClipmap {
         textureClipmap = new Texture3D();
         textureClipmap.setMinificationFilter(MinificationFilter.NearestNeighborNoMipMaps);
         textureClipmap.setMagnificationFilter(MagnificationFilter.NearestNeighbor);
-        // textureClipmap.setMinificationFilter(MinificationFilter.BilinearNoMipMaps);
-        // textureClipmap.setMagnificationFilter(MagnificationFilter.Bilinear);
         final Image img = new Image();
         img.setWidth(textureSize);
         img.setHeight(textureSize);
@@ -606,6 +602,21 @@ public class TextureClipmap {
         return v;
     }
 
+    /**
+     * @return true if this clipmap should be drawn during terrain rendering.
+     */
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    /**
+     * @param enabled
+     *            true (default) if this clipmap should be drawn during terrain rendering.
+     */
+    public void setEnabled(final boolean enabled) {
+        this.enabled = enabled;
+    }
+
     public boolean isShowDebug() {
         return showDebug;
     }
@@ -626,9 +637,13 @@ public class TextureClipmap {
         return validLevels;
     }
 
+    public TextureSource getSource() {
+        return source;
+    }
+
     /**
      * set the minimum (highest resolution) clipmap level visible
-     * 
+     *
      * @param level
      *            clamped to valid range
      */
@@ -646,9 +661,7 @@ public class TextureClipmap {
         return minVisibleLevel;
     }
 
-    public void shutdown() {
-        for (final TextureCache cache : cacheList) {
-            cache.shutdown();
-        }
+    public List<TextureCache> getCacheList() {
+        return cacheList;
     }
 }

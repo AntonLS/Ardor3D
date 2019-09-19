@@ -1,35 +1,38 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.util.geom;
 
+import java.nio.FloatBuffer;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Vector2;
 import com.ardor3d.math.Vector3;
+import com.ardor3d.renderer.IndexMode;
+import com.ardor3d.scenegraph.FloatBufferData;
 import com.ardor3d.scenegraph.IndexBufferData;
 import com.ardor3d.scenegraph.Mesh;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
-import com.google.common.collect.Maps;
 
 /**
  * This tool assists in reducing geometry information.<br>
- * 
+ *
  * Note: Does not work with geometry using texcoords other than 2d coords. <br>
  * TODO: Consider adding an option for "close enough" vertex matches... ie, smaller than X distance apart.<br>
  */
-public class GeometryTool {
+public final class GeometryTool {
     private static final Logger logger = Logger.getLogger(GeometryTool.class.getName());
 
     /**
@@ -46,7 +49,7 @@ public class GeometryTool {
         Group;
     }
 
-    public GeometryTool() {
+    private GeometryTool() {
         super();
     }
 
@@ -54,14 +57,14 @@ public class GeometryTool {
      * Attempt to collapse duplicate vertex data in a given mesh. Vertices are considered duplicate if they occupy the
      * same place in space and match the supplied conditions. All vertices in the mesh are considered part of the same
      * vertex "group".
-     * 
+     *
      * @param mesh
      *            the mesh to reduce
      * @param conditions
      *            our match conditions.
      * @return a mapping of old vertex positions to their new positions.
      */
-    public VertMap minimizeVerts(final Mesh mesh, final EnumSet<MatchCondition> conditions) {
+    public static VertMap minimizeVerts(final Mesh mesh, final EnumSet<MatchCondition> conditions) {
         final VertGroupData groupData = new VertGroupData();
         groupData.setGroupConditions(VertGroupData.DEFAULT_GROUP, conditions);
         return minimizeVerts(mesh, groupData);
@@ -70,14 +73,14 @@ public class GeometryTool {
     /**
      * Attempt to collapse duplicate vertex data in a given mesh. Vertices are consider duplicate if they occupy the
      * same place in space and match the supplied conditions. The conditions are supplied per vertex group.
-     * 
+     *
      * @param mesh
      *            the mesh to reduce
      * @param groupData
      *            grouping data for the vertices in this mesh.
      * @return a mapping of old vertex positions to their new positions.
      */
-    public VertMap minimizeVerts(final Mesh mesh, final VertGroupData groupData) {
+    public static VertMap minimizeVerts(final Mesh mesh, final VertGroupData groupData) {
         final long start = System.currentTimeMillis();
 
         int vertCount = -1;
@@ -104,23 +107,42 @@ public class GeometryTool {
             }
 
             // see if we have uv coords
-            final Vector2[][] tex = new Vector2[mesh.getMeshData().getNumberOfUnits()][];
-            for (int x = 0; x < tex.length; x++) {
-                if (mesh.getMeshData().getTextureCoords(x) != null) {
-                    tex[x] = BufferUtils.getVector2Array(mesh.getMeshData().getTextureCoords(x), Vector2.ZERO);
+            final int maxUVUnit = mesh.getMeshData().getMaxTextureUnitUsed();
+            final Vector2[][] tex;
+            if (maxUVUnit >= 0) {
+                tex = new Vector2[maxUVUnit + 1][];
+                for (int x = 0; x < tex.length; x++) {
+                    if (mesh.getMeshData().getTextureCoords(x) != null) {
+                        tex[x] = BufferUtils.getVector2Array(mesh.getMeshData().getTextureCoords(x), Vector2.ZERO);
+                    }
                 }
+            } else {
+                tex = new Vector2[0][];
             }
 
-            final Map<VertKey, Integer> store = Maps.newHashMap();
-            final Map<Integer, Integer> indexRemap = Maps.newHashMap();
+            // Use a map of maps - vert has to be equal, so we can reduce the comparisons being made drastically by
+            // reducing down to just same vertices.
+            final Map<Vector3, Map<VertKey, Integer>> vertMap = new HashMap<>();
+            final Map<Integer, Integer> indexRemap = new HashMap<>();
+            Map<VertKey, Integer> store;
             int good = 0;
             long group;
             for (int x = 0, max = verts.length; x < max; x++) {
                 group = groupData.getGroupForVertex(x);
-                final VertKey vkey = new VertKey(verts[x], norms != null ? norms[x] : null, colors != null ? colors[x]
-                        : null, getTexs(tex, x), groupData.getGroupConditions(group), group);
+                final VertKey vkey = new VertKey(verts[x], norms != null ? norms[x] : null,
+                        colors != null ? colors[x] : null, getTexs(tex, x), groupData.getGroupConditions(group), group);
+                // Store if we have not already seen it
+                store = vertMap.get(verts[x]);
+                if (store == null) {
+                    store = new HashMap<>();
+                    vertMap.put(verts[x], store);
+                }
+                if (store.putIfAbsent(vkey, x) == null) {
+                    good++;
+                }
+
                 // if we've already seen it, swap it for the max, and decrease max.
-                if (store.containsKey(vkey)) {
+                else {
                     final int newInd = store.get(vkey);
                     if (indexRemap.containsKey(x)) {
                         indexRemap.put(max, newInd);
@@ -148,12 +170,6 @@ public class GeometryTool {
                     } else {
                         verts[max] = null;
                     }
-                }
-
-                // otherwise just store it
-                else {
-                    store.put(vkey, x);
-                    good++;
                 }
             }
 
@@ -209,7 +225,7 @@ public class GeometryTool {
         return result;
     }
 
-    private Vector2[] getTexs(final Vector2[][] tex, final int i) {
+    private static Vector2[] getTexs(final Vector2[][] tex, final int i) {
         final Vector2[] res = new Vector2[tex.length];
         for (int x = 0; x < tex.length; x++) {
             if (tex[x] != null) {
@@ -219,7 +235,7 @@ public class GeometryTool {
         return res;
     }
 
-    public void trimEmptyBranches(final Spatial spatial) {
+    public static void trimEmptyBranches(final Spatial spatial) {
         if (spatial instanceof Node) {
             final Node node = (Node) spatial;
             for (int i = node.getNumberOfChildren(); --i >= 0;) {
@@ -228,6 +244,120 @@ public class GeometryTool {
             if (node.getNumberOfChildren() <= 0) {
                 spatial.removeFromParent();
             }
+        }
+    }
+
+    public static FloatBufferData convertQuadVerticesToTriangles(final FloatBufferData vertices) {
+        final int dims = vertices.getValuesPerTuple();
+        if (dims != 2 && dims != 3) {
+            throw new IllegalArgumentException(
+                    "Only 2d and 3d quad data can be supported.  Vertices had tuple size of " + dims);
+        }
+
+        final FloatBuffer srcBuffer = vertices.getBuffer();
+        final int qVerts = vertices.getTupleCount();
+
+        // write our quads as 2 individual triangles
+        if (qVerts < 4 || (qVerts % 4) != 0) {
+            throw new IllegalArgumentException("Quad data should have 4*N verts where N=[1,R]");
+        }
+        final int quads = qVerts / 4;
+        final int tris = 2 * quads;
+        final int tVerts = tris * 3;
+
+        final FloatBufferData rVal = new FloatBufferData(tVerts * dims, dims);
+        final FloatBuffer dstBuffer = rVal.getBuffer();
+
+        // write our new data by walking through our quads
+        for (int q = 0; q < quads; q++) {
+            final int offsetSrc = q * 4 * dims;
+            final int offsetDst = q * 6 * dims;
+            // 0 1 2
+            BufferUtils.copy(srcBuffer, offsetSrc + 0 * dims, dstBuffer, offsetDst + 0 * dims, dims);
+            BufferUtils.copy(srcBuffer, offsetSrc + 1 * dims, dstBuffer, offsetDst + 1 * dims, dims);
+            BufferUtils.copy(srcBuffer, offsetSrc + 2 * dims, dstBuffer, offsetDst + 2 * dims, dims);
+
+            // 2 1 3
+            BufferUtils.copy(srcBuffer, offsetSrc + 2 * dims, dstBuffer, offsetDst + 3 * dims, dims);
+            BufferUtils.copy(srcBuffer, offsetSrc + 1 * dims, dstBuffer, offsetDst + 4 * dims, dims);
+            BufferUtils.copy(srcBuffer, offsetSrc + 3 * dims, dstBuffer, offsetDst + 5 * dims, dims);
+        }
+
+        return rVal;
+    }
+
+    public static IndexBufferData<?> convertQuadIndicesToTriangles(final IndexBufferData<?> quadIndices,
+            final int vertexCount) {
+        final int[] indices = new int[quadIndices.getBufferLimit()];
+        for (int i = 0; i < indices.length; i++) {
+            indices[i] = quadIndices.get(i);
+        }
+
+        return convertQuadIndicesToTriangles(indices, vertexCount);
+    }
+
+    public static IndexBufferData<?> convertQuadIndicesToTriangles(final int[] quadIndices, final int vertexCount) {
+        final int qIndices = quadIndices.length;
+
+        if (qIndices < 4 || (qIndices % 4) != 0) {
+            throw new IllegalArgumentException("Quad data should have 4*N indices where N=[1,R]");
+        }
+        final int quads = qIndices / 4;
+        final int tris = 2 * quads;
+        final int tVerts = tris * 3;
+
+        final IndexBufferData<?> rVal = BufferUtils.createIndexBufferData(tVerts, vertexCount - 1);
+
+        // write our new data by walking through our quads
+        for (int q = 0; q < quads; q++) {
+            final int offsetSrc = q * 4;
+
+            // 0 1 2
+            rVal.put(quadIndices[offsetSrc + 0]);
+            rVal.put(quadIndices[offsetSrc + 1]);
+            rVal.put(quadIndices[offsetSrc + 2]);
+
+            // 2 1 3
+            rVal.put(quadIndices[offsetSrc + 2]);
+            rVal.put(quadIndices[offsetSrc + 1]);
+            rVal.put(quadIndices[offsetSrc + 3]);
+        }
+
+        return rVal;
+    }
+
+    public static IndexBufferData<?> generateAdjacencyIndices(final IndexMode mode, final int vertexCount) {
+        switch (mode) {
+            case LinesAdjacency: {
+                if (vertexCount < 2) {
+                    return null;
+                }
+                final int lines = vertexCount / 2;
+                final int indices = 4 * lines;
+                final IndexBufferData<?> rVal = BufferUtils.createIndexBufferData(indices, vertexCount - 1);
+                for (int i = 0; i < lines; i++) {
+                    rVal.put(i == 0 ? 1 : i * 2 - 1);
+                    rVal.put(i * 2);
+                    rVal.put(i * 2 + 1);
+                    rVal.put(i + 1 == lines ? i * 2 : i * 2 + 2);
+                }
+                return rVal;
+            }
+            case LineStripAdjacency: {
+                if (vertexCount < 2) {
+                    return null;
+                }
+                final int indices = vertexCount + 2;
+                final IndexBufferData<?> rVal = BufferUtils.createIndexBufferData(indices, vertexCount - 1);
+                rVal.put(1);
+                for (int i = 0; i < vertexCount; i++) {
+                    rVal.put(i);
+                }
+                rVal.put(vertexCount - 2);
+                return rVal;
+            }
+            default:
+                throw new IllegalArgumentException("Unhandled mode: " + mode);
         }
     }
 }

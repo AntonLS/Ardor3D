@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.ui;
@@ -30,7 +30,7 @@ import com.ardor3d.scenegraph.controller.SpatialController;
 import com.ardor3d.util.ReadOnlyTimer;
 
 /**
- * Illustrates how to display and move GUI primitatives (e.g. RadioButton, Lable, TabbedPane) on a canvas.
+ * Illustrates how to display and move GUI primitives (e.g. RadioButton, Label, TabbedPane) on a canvas.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.ui.RotatingUIExample", //
 thumbnailPath = "com/ardor3d/example/media/thumbnails/ui_RotatingUIExample.jpg", //
@@ -52,13 +52,10 @@ public class RotatingUIExample extends ExampleBase {
 
         final UIFrame frame = new UIFrame("Sample");
         frame.setContentPanel(panel);
-        frame.updateMinimumSizeFromContents();
-        frame.layout();
-        frame.pack(300, 200);
+        frame.pack();
 
         frame.setUseStandin(false);
         frame.setOpacity(1f);
-        frame.setLocationRelativeTo(_canvas.getCanvasRenderer().getCamera());
         frame.setName("sample");
 
         final Matrix3 rotate = new Matrix3();
@@ -66,11 +63,11 @@ public class RotatingUIExample extends ExampleBase {
         rotate.fromAngleNormalAxis(45 * MathUtils.DEG_TO_RAD, axis);
         frame.setRotation(rotate);
 
-        hud = new UIHud();
+        hud = new UIHud(_canvas);
         hud.add(frame);
-        hud.setupInput(_canvas, _physicalLayer, _logicalLayer);
+        hud.setupInput(_physicalLayer, _logicalLayer);
 
-        frame.setLocationRelativeTo(_canvas.getCanvasRenderer().getCamera());
+        frame.centerOn(hud);
     }
 
     private UIPanel makePanel() {
@@ -104,6 +101,8 @@ public class RotatingUIExample extends ExampleBase {
             }
         });
         rotatingLabel.setLayoutData(BorderLayoutData.NORTH);
+
+        panel.setMinimumContentSize(300, 200);
 
         return panel;
     }

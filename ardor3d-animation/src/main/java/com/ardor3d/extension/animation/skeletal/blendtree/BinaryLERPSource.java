@@ -1,22 +1,22 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.animation.skeletal.blendtree;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import com.ardor3d.extension.animation.skeletal.AnimationManager;
 import com.ardor3d.extension.animation.skeletal.clip.TransformData;
 import com.ardor3d.math.MathUtils;
-import com.google.common.collect.Maps;
 
 /**
  * <p>
@@ -112,7 +112,7 @@ public class BinaryLERPSource extends AbstractTwoPartSource {
 
         Map<String, Object> rVal = store;
         if (rVal == null) {
-            rVal = Maps.newHashMap();
+            rVal = new HashMap<>();
         }
 
         for (final Entry<String, ? extends Object> entryAData : sourceAData.entrySet()) {

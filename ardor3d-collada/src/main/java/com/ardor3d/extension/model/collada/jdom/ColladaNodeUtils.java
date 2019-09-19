@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.model.collada.jdom;
@@ -33,7 +33,6 @@ import com.ardor3d.math.Vector3;
 import com.ardor3d.math.Vector4;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
-import com.google.common.collect.Lists;
 
 /**
  * Methods for parsing Collada data related to scenes and node hierarchy.
@@ -59,12 +58,11 @@ public class ColladaNodeUtils {
 
     /**
      * Retrieves the scene and returns it as an Ardor3D Node.
-     * 
+     *
      * @param colladaRoot
      *            The collada root element
      * @return Scene as an Node or null if not found
      */
-    @SuppressWarnings("unchecked")
     public Node getVisualScene(final Element colladaRoot) {
         if (colladaRoot.getChild("scene") == null) {
             logger.warning("No scene found in collada file!");
@@ -96,7 +94,7 @@ public class ColladaNodeUtils {
 
             // build a list of joints - one list per skeleton - and build a skeleton for each joint list.
             for (final JointNode jointChildNode : _dataCache.getRootJointNode().getChildren()) {
-                final List<Joint> jointList = Lists.newArrayList();
+                final List<Joint> jointList = new ArrayList<>();
                 buildJointLists(jointChildNode, jointList);
                 final Joint[] joints = jointList.toArray(new Joint[jointList.size()]);
                 final Skeleton skeleton = new Skeleton(joints[0].getName() + "_skeleton", joints);
@@ -155,11 +153,10 @@ public class ColladaNodeUtils {
 
     /**
      * Parse an asset element into an AssetData object.
-     * 
+     *
      * @param asset
      * @return
      */
-    @SuppressWarnings("unchecked")
     public AssetData parseAsset(final Element asset) {
         final AssetData assetData = new AssetData();
 
@@ -202,7 +199,6 @@ public class ColladaNodeUtils {
         return assetData;
     }
 
-    @SuppressWarnings("unchecked")
     private void parseContributor(final AssetData assetData, final Element contributor) {
         for (final Element child : contributor.getChildren()) {
             if ("author".equals(child.getName())) {
@@ -236,11 +232,10 @@ public class ColladaNodeUtils {
 
     /**
      * Recursively parse the node hierarcy.
-     * 
+     *
      * @param dNode
      * @return a new Ardor3D node, created from the given <node> element
      */
-    @SuppressWarnings("unchecked")
     private Node buildNode(final Element dNode, JointNode jointNode) {
         final NodeType nodeType = getNodeType(dNode);
         final JointNode jointChildNode;
@@ -352,7 +347,7 @@ public class ColladaNodeUtils {
 
     /**
      * Combines a list of transform elements into an Ardor3D Transform object.
-     * 
+     *
      * @param transforms
      *            List of transform elements
      * @return an Ardor3D Transform object

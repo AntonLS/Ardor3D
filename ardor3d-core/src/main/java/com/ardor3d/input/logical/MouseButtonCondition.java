@@ -1,30 +1,29 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.input.logical;
 
 import java.util.EnumMap;
+import java.util.function.Predicate;
 
 import com.ardor3d.annotation.Immutable;
-import com.ardor3d.input.ButtonState;
 import com.ardor3d.input.InputState;
-import com.ardor3d.input.MouseButton;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Maps;
+import com.ardor3d.input.mouse.ButtonState;
+import com.ardor3d.input.mouse.MouseButton;
 
 /**
  * A condition that checks the state of the two most commonly used mouse buttons.
  */
 @Immutable
 public final class MouseButtonCondition implements Predicate<TwoInputStates> {
-    private final EnumMap<MouseButton, ButtonState> _states = Maps.newEnumMap(MouseButton.class);
+    private final EnumMap<MouseButton, ButtonState> _states = new EnumMap<>(MouseButton.class);
 
     public MouseButtonCondition(final EnumMap<MouseButton, ButtonState> states) {
         _states.putAll(states);
@@ -42,7 +41,7 @@ public final class MouseButtonCondition implements Predicate<TwoInputStates> {
         }
     }
 
-    public boolean apply(final TwoInputStates states) {
+    public boolean test(final TwoInputStates states) {
         final InputState currentState = states.getCurrent();
 
         if (currentState == null) {

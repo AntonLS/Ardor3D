@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.model.collada.jdom.data;
@@ -20,12 +20,11 @@ import com.ardor3d.extension.animation.skeletal.clip.AnimationClip;
 import com.ardor3d.util.export.InputCapsule;
 import com.ardor3d.util.export.OutputCapsule;
 import com.ardor3d.util.export.Savable;
-import com.google.common.collect.Lists;
 
 @SavableFactory(factoryMethod = "initSavable")
 public class AnimationItem implements Savable {
     private final String _name;
-    private final List<AnimationItem> _children = Lists.newArrayList();
+    private final List<AnimationItem> _children = new ArrayList<>();
     private AnimationClip _animationClip;
 
     public AnimationItem(final String name) {
@@ -74,7 +73,7 @@ public class AnimationItem implements Savable {
         }
         _children.clear();
         _children.addAll(capsule.readSavableList("children", new ArrayList<AnimationItem>()));
-        _animationClip = (AnimationClip) capsule.readSavable("animationClip", null);
+        _animationClip = capsule.readSavable("animationClip", null);
     }
 
     @Override

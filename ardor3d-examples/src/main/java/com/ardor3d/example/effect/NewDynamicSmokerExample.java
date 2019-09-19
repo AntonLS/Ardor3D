@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.effect;
@@ -15,6 +15,7 @@ import java.util.concurrent.Callable;
 
 import com.ardor3d.example.ExampleBase;
 import com.ardor3d.example.Purpose;
+import com.ardor3d.extension.effect.EffectUtils;
 import com.ardor3d.extension.effect.particle.ParticleFactory;
 import com.ardor3d.extension.effect.particle.ParticleSystem;
 import com.ardor3d.extension.effect.particle.emitter.MeshEmitter;
@@ -35,12 +36,12 @@ import com.ardor3d.framework.CanvasRenderer;
 import com.ardor3d.image.Texture;
 import com.ardor3d.image.Texture.WrapMode;
 import com.ardor3d.image.TextureStoreFormat;
-import com.ardor3d.input.MouseState;
 import com.ardor3d.input.control.FirstPersonControl;
 import com.ardor3d.input.logical.InputTrigger;
 import com.ardor3d.input.logical.MouseMovedCondition;
 import com.ardor3d.input.logical.TriggerAction;
 import com.ardor3d.input.logical.TwoInputStates;
+import com.ardor3d.input.mouse.MouseState;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Plane;
@@ -67,8 +68,8 @@ import com.ardor3d.util.TextureManager;
  * Another particle demonstration, this one showing a smoking rocket following the cursor around the screen.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.effect.NewDynamicSmokerExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/effect_NewDynamicSmokerExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/effect_NewDynamicSmokerExample.jpg", //
+        maxHeapMemory = 64)
 public class NewDynamicSmokerExample extends ExampleBase {
 
     private static double ROCKET_TURN_SPEED = 5;
@@ -91,6 +92,8 @@ public class NewDynamicSmokerExample extends ExampleBase {
 
     @Override
     protected void initExample() {
+        EffectUtils.addDefaultResourceLocators();
+
         _canvas.setTitle("Smoking Rocket");
         final CanvasRenderer canvasRenderer = _canvas.getCanvasRenderer();
         final RenderContext renderContext = canvasRenderer.getRenderContext();
@@ -179,12 +182,12 @@ public class NewDynamicSmokerExample extends ExampleBase {
         rocketEntityNode.setRotation(currentOrient);
 
         // propel forward
-        rocketEntityNode.addTranslation(currentOrient.apply(Vector3.NEG_UNIT_Z, null).multiplyLocal(
-                ROCKET_PROPEL_SPEED * tpf));
+        rocketEntityNode
+                .addTranslation(currentOrient.apply(Vector3.NEG_UNIT_Z, null).multiplyLocal(ROCKET_PROPEL_SPEED * tpf));
 
         if (stayIn2DPlane) {
-            rocketEntityNode.setTranslation(rocketEntityNode.getTranslation().getX(), rocketEntityNode.getTranslation()
-                    .getY(), 0);
+            rocketEntityNode.setTranslation(rocketEntityNode.getTranslation().getX(),
+                    rocketEntityNode.getTranslation().getY(), 0);
         }
     }
 
@@ -193,6 +196,7 @@ public class NewDynamicSmokerExample extends ExampleBase {
         rocket.setRotation(new Quaternion().fromAngleAxis(MathUtils.DEG_TO_RAD * -90, Vector3.UNIT_X));
         rocketEntityNode.attachChild(rocket);
         _root.attachChild(rocketEntityNode);
+        rocket.setRenderMaterial("unlit/untextured/basic.yaml");
     }
 
     private void addEngineSmoke() {
@@ -223,7 +227,7 @@ public class NewDynamicSmokerExample extends ExampleBase {
 
         final TextureState ts = new TextureState();
         ts.setTexture(TextureManager.load("images/flare.png", Texture.MinificationFilter.Trilinear,
-                TextureStoreFormat.GuessCompressedFormat, true));
+                TextureStoreFormat.GuessNoCompressedFormat, true));
         ts.getTexture().setWrap(WrapMode.BorderClamp);
         ts.setEnabled(true);
         smoke.setRenderState(ts);
@@ -236,8 +240,8 @@ public class NewDynamicSmokerExample extends ExampleBase {
 
     private void addUI() {
         // setup hud
-        hud = new UIHud();
-        hud.setupInput(_canvas, _physicalLayer, _logicalLayer);
+        hud = new UIHud(_canvas);
+        hud.setupInput(_physicalLayer, _logicalLayer);
         hud.setMouseManager(_mouseManager);
 
         final UIFrame frame = new UIFrame("Controls", EnumSet.noneOf(FrameButtons.class));
@@ -307,9 +311,8 @@ public class NewDynamicSmokerExample extends ExampleBase {
 
         frame.setContentPanel(panel);
         frame.pack();
-        final Camera cam = _canvas.getCanvasRenderer().getCamera();
-        frame.setLocalXY(cam.getWidth() - frame.getLocalComponentWidth(),
-                cam.getHeight() - frame.getLocalComponentHeight());
+        frame.setLocalXY(hud.getWidth() - frame.getLocalComponentWidth(),
+                hud.getHeight() - frame.getLocalComponentHeight());
         hud.add(frame);
     }
 }

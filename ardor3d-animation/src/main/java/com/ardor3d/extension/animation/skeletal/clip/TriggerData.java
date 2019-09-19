@@ -1,18 +1,17 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.animation.skeletal.clip;
 
+import java.util.ArrayList;
 import java.util.List;
-
-import com.google.common.collect.Lists;
 
 /**
  * Transient class that maintains the current triggers and armed status for a TriggerChannel.
@@ -20,7 +19,7 @@ import com.google.common.collect.Lists;
 public class TriggerData {
 
     /** The current trigger name. */
-    private final List<String> _currentTriggers = Lists.newArrayList();
+    private final List<String> _currentTriggers = new ArrayList<>();
 
     /**
      * The current channel sample index. We keep this to make sure we don't miss two channels in a row with the same

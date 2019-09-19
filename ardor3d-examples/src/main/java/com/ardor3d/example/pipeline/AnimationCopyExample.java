@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.pipeline;
@@ -13,7 +13,6 @@ package com.ardor3d.example.pipeline;
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.concurrent.Callable;
 
 import com.ardor3d.example.ExampleBase;
 import com.ardor3d.example.Purpose;
@@ -55,19 +54,14 @@ import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Quaternion;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.renderer.Camera;
-import com.ardor3d.renderer.RenderContext;
 import com.ardor3d.renderer.Renderer;
+import com.ardor3d.renderer.material.MaterialManager;
+import com.ardor3d.renderer.material.RenderMaterial;
 import com.ardor3d.renderer.state.CullState;
 import com.ardor3d.renderer.state.CullState.Face;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
-import com.ardor3d.renderer.state.RenderState.StateType;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.scenegraph.controller.SpatialController;
-import com.ardor3d.scenegraph.hint.DataMode;
-import com.ardor3d.scenegraph.visitor.Visitor;
-import com.ardor3d.util.GameTaskQueue;
-import com.ardor3d.util.GameTaskQueueManager;
 import com.ardor3d.util.ReadOnlyTimer;
 import com.ardor3d.util.geom.MeshCombiner;
 import com.ardor3d.util.resource.ResourceLocatorTool;
@@ -78,8 +72,8 @@ import com.ardor3d.util.resource.URLResourceSource;
  * Illustrates loading several animations from Collada and arranging them in an animation state machine.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.pipeline.AnimationCopyExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/pipeline_AnimationCopyExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/pipeline_AnimationCopyExample.jpg", //
+        maxHeapMemory = 64)
 public class AnimationCopyExample extends ExampleBase {
 
     private Spatial primeModel;
@@ -96,8 +90,7 @@ public class AnimationCopyExample extends ExampleBase {
     private SkeletonPose pose;
 
     private UIButton runWalkButton, punchButton;
-
-    private GLSLShaderObjectsState gpuShader;
+    private RenderMaterial matCPU, matGPU;
 
     private final Node skNode = new Node("skeletons");
 
@@ -109,22 +102,14 @@ public class AnimationCopyExample extends ExampleBase {
     protected void initExample() {
         _canvas.setTitle("Ardor3D - Animation Copy Example - 100 Skeleton copies");
         final CanvasRenderer canvasRenderer = _canvas.getCanvasRenderer();
-        final RenderContext renderContext = canvasRenderer.getRenderContext();
         final Renderer renderer = canvasRenderer.getRenderer();
-        GameTaskQueueManager.getManager(renderContext).getQueue(GameTaskQueue.RENDER).enqueue(new Callable<Void>() {
-            @Override
-            public Void call() throws Exception {
-                renderer.setBackgroundColor(ColorRGBA.BLACK);
-                return null;
-            }
-        });
+        renderer.setBackgroundColor(ColorRGBA.BLACK);
 
         // set camera
         final Camera cam = _canvas.getCanvasRenderer().getCamera();
-        cam.setLocation(280, 372, -280);
-        cam.lookAt(new Vector3(250, 350, -280), Vector3.UNIT_Y);
-        cam.setFrustumPerspective(50.0, cam.getWidth() / (double) cam.getHeight(), .25, 900);
-        cam.update();
+        cam.setLocation(0, 0, 0);
+        cam.lookAt(new Vector3(-100, 0, 0), Vector3.UNIT_Y);
+        cam.setFrustumPerspective(50.0, cam.getWidth() / (double) cam.getHeight(), .25, 1100);
 
         // speed up wasd control a little
         _controlHandle.setMoveSpeed(200);
@@ -133,7 +118,7 @@ public class AnimationCopyExample extends ExampleBase {
         final DirectionalLight light = new DirectionalLight();
         light.setDiffuse(new ColorRGBA(0.75f, 0.75f, 0.75f, 0.75f));
         light.setAmbient(new ColorRGBA(0.25f, 0.25f, 0.25f, 1.0f));
-        light.setDirection(new Vector3(-1, -1, -1).normalizeLocal());
+        light.setDirection(new Vector3(-1, 0, 0).normalizeLocal());
         light.setEnabled(true);
         _lightState.attach(light);
 
@@ -145,24 +130,23 @@ public class AnimationCopyExample extends ExampleBase {
     }
 
     private void createHUD() {
-        hud = new UIHud();
-        hud.setupInput(_canvas, _physicalLayer, _logicalLayer);
+        hud = new UIHud(_canvas);
+        hud.setupInput(_physicalLayer, _logicalLayer);
         hud.setMouseManager(_mouseManager);
 
         // Add fps display
         frameRateLabel = new UILabel("X");
-        frameRateLabel.setHudXY(5,
-                _canvas.getCanvasRenderer().getCamera().getHeight() - 5 - frameRateLabel.getContentHeight());
+        frameRateLabel.setHudXY(5, hud.getHeight() - 5 - frameRateLabel.getContentHeight());
         frameRateLabel.setForegroundColor(ColorRGBA.WHITE);
         hud.add(frameRateLabel);
 
         final UIFrame optionsFrame = new UIFrame("Controls", EnumSet.noneOf(FrameButtons.class));
 
-        final UIPanel basePanel = optionsFrame.getContentPanel();
-        basePanel.setLayout(new AnchorLayout());
+        final UIPanel panel = optionsFrame.getContentPanel();
+        panel.setLayout(new AnchorLayout());
 
         runWalkButton = new UIButton("Start running...");
-        runWalkButton.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, basePanel, Alignment.TOP_LEFT, 5, -5));
+        runWalkButton.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, panel, Alignment.TOP_LEFT, 5, -5));
         runWalkButton.addActionListener(new ActionListener() {
             boolean walk = true;
 
@@ -180,7 +164,7 @@ public class AnimationCopyExample extends ExampleBase {
                 }
             }
         });
-        basePanel.add(runWalkButton);
+        panel.add(runWalkButton);
 
         punchButton = new UIButton("PUNCH!");
         punchButton
@@ -191,7 +175,7 @@ public class AnimationCopyExample extends ExampleBase {
                 punchButton.setEnabled(false);
             }
         });
-        basePanel.add(punchButton);
+        panel.add(punchButton);
 
         headCheck = new UICheckBox("Procedurally turn head");
         headCheck.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, punchButton, Alignment.BOTTOM_LEFT, 0, -5));
@@ -202,7 +186,7 @@ public class AnimationCopyExample extends ExampleBase {
                 manager.getValuesStore().put("head_blend", headCheck.isSelected() ? 1.0 : 0.0);
             }
         });
-        basePanel.add(headCheck);
+        panel.add(headCheck);
 
         final UICheckBox gpuSkinningCheck = new UICheckBox("Use GPU skinning");
         gpuSkinningCheck
@@ -210,40 +194,26 @@ public class AnimationCopyExample extends ExampleBase {
         gpuSkinningCheck.setSelected(false);
         gpuSkinningCheck.addActionListener(new ActionListener() {
             public void actionPerformed(final ActionEvent event) {
-                _root.acceptVisitor(new Visitor() {
-                    @Override
-                    public void visit(final Spatial spatial) {
-                        if (spatial instanceof SkinnedMesh) {
-                            final SkinnedMesh skinnedSpatial = (SkinnedMesh) spatial;
-                            if (gpuSkinningCheck.isSelected()) {
-                                skinnedSpatial.setGPUShader(gpuShader);
-                                skinnedSpatial.setUseGPU(true);
-                            } else {
-                                skinnedSpatial.setGPUShader(null);
-                                skinnedSpatial.clearRenderState(StateType.GLSLShader);
-                                skinnedSpatial.setUseGPU(false);
-                            }
+                _root.acceptVisitor((final Spatial spatial) -> {
+                    if (spatial instanceof SkinnedMesh) {
+                        final SkinnedMesh skinnedSpatial = (SkinnedMesh) spatial;
+                        if (gpuSkinningCheck.isSelected()) {
+                            skinnedSpatial.setRenderMaterial(matGPU);
+                            skinnedSpatial.setUseGPU(true);
+                        } else {
+                            skinnedSpatial.setRenderMaterial(matCPU);
+                            skinnedSpatial.setUseGPU(false);
                         }
                     }
                 }, true);
             }
         });
-        basePanel.add(gpuSkinningCheck);
-
-        final UICheckBox vboCheck = new UICheckBox("Use VBO");
-        vboCheck.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, gpuSkinningCheck, Alignment.BOTTOM_LEFT, 0, -5));
-        vboCheck.setSelected(false);
-        vboCheck.addActionListener(new ActionListener() {
-            public void actionPerformed(final ActionEvent event) {
-                skNode.getSceneHints().setDataMode(vboCheck.isSelected() ? DataMode.VBO : DataMode.Arrays);
-                gpuShader.setUseAttributeVBO(vboCheck.isSelected());
-            }
-        });
-        basePanel.add(vboCheck);
+        panel.add(gpuSkinningCheck);
 
         final UICheckBox skeletonCheck = new UICheckBox("Show skeleton");
         final UICheckBox boneLabelCheck = new UICheckBox("Show joint labels");
-        skeletonCheck.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, vboCheck, Alignment.BOTTOM_LEFT, 0, -5));
+        skeletonCheck.setLayoutData(
+                new AnchorLayoutData(Alignment.TOP_LEFT, gpuSkinningCheck, Alignment.BOTTOM_LEFT, 0, -5));
         skeletonCheck.setSelected(showSkeleton);
         skeletonCheck.addActionListener(new ActionListener() {
 
@@ -252,10 +222,10 @@ public class AnimationCopyExample extends ExampleBase {
                 boneLabelCheck.setEnabled(showSkeleton);
             }
         });
-        basePanel.add(skeletonCheck);
+        panel.add(skeletonCheck);
 
-        boneLabelCheck.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, skeletonCheck, Alignment.BOTTOM_LEFT, 0,
-                -5));
+        boneLabelCheck
+                .setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, skeletonCheck, Alignment.BOTTOM_LEFT, 0, -5));
         boneLabelCheck.setSelected(false);
         boneLabelCheck.setEnabled(showSkeleton);
         boneLabelCheck.addActionListener(new ActionListener() {
@@ -264,18 +234,16 @@ public class AnimationCopyExample extends ExampleBase {
                 showJointLabels = boneLabelCheck.isSelected();
             }
         });
-        basePanel.add(boneLabelCheck);
+        panel.add(boneLabelCheck);
 
-        optionsFrame.updateMinimumSizeFromContents();
-        optionsFrame.layout();
         optionsFrame.pack();
 
         optionsFrame.setUseStandin(true);
         optionsFrame.setOpacity(0.8f);
 
         final Camera cam = _canvas.getCanvasRenderer().getCamera();
-        optionsFrame.setLocalXY(cam.getWidth() - optionsFrame.getLocalComponentWidth() - 10, cam.getHeight()
-                - optionsFrame.getLocalComponentHeight() - 10);
+        optionsFrame.setLocalXY(cam.getWidth() - optionsFrame.getLocalComponentWidth() - 10,
+                cam.getHeight() - optionsFrame.getLocalComponentHeight() - 10);
         hud.add(optionsFrame);
 
         UIComponent.setUseTransparency(true);
@@ -283,6 +251,10 @@ public class AnimationCopyExample extends ExampleBase {
 
     private void createCharacter() {
         try {
+            SkinnedMesh.addDefaultResourceLocators();
+            matGPU = MaterialManager.INSTANCE.findMaterial("lit/textured/basic_skinmesh_phong.yaml");
+            matCPU = MaterialManager.INSTANCE.findMaterial("lit/textured/basic_phong.yaml");
+
             skNode.detachAllChildren();
             _root.attachChild(skNode);
 
@@ -304,21 +276,6 @@ public class AnimationCopyExample extends ExampleBase {
             System.out.println("Importing: " + mainFile);
             System.out.println("Took " + (System.currentTimeMillis() - time) + " ms");
 
-            gpuShader = new GLSLShaderObjectsState();
-            gpuShader.setEnabled(true);
-            try {
-                gpuShader.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(AnimationCopyExample.class,
-                        "com/ardor3d/extension/animation/skeletal/skinning_gpu_texture.vert"));
-                gpuShader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(
-                        AnimationCopyExample.class,
-                        "com/ardor3d/extension/animation/skeletal/skinning_gpu_texture.frag"));
-
-                gpuShader.setUniform("texture", 0);
-                gpuShader.setUniform("lightDirection", new Vector3(1, 1, 1).normalizeLocal());
-            } catch (final IOException ioe) {
-                ioe.printStackTrace();
-            }
-
             // OPTIMIZATION: SkinnedMesh combining... Useful in our case because the skeleton model is composed of 2
             // separate meshes.
             primeModel = MeshCombiner.combine(colladaNode, new SkinnedMeshCombineLogic());
@@ -326,14 +283,11 @@ public class AnimationCopyExample extends ExampleBase {
             // primeModel = colladaNode;
 
             // OPTIMIZATION: turn on the buffers in our skeleton so they can be shared. (reuse ids)
-            primeModel.acceptVisitor(new Visitor() {
-                @Override
-                public void visit(final Spatial spatial) {
-                    if (spatial instanceof SkinnedMesh) {
-                        final SkinnedMesh skinnedSpatial = (SkinnedMesh) spatial;
-                        skinnedSpatial.recreateWeightAttributeBuffer();
-                        skinnedSpatial.recreateJointAttributeBuffer();
-                    }
+            primeModel.acceptVisitor((final Spatial spatial) -> {
+                if (spatial instanceof SkinnedMesh) {
+                    final SkinnedMesh skinnedSpatial = (SkinnedMesh) spatial;
+                    skinnedSpatial.recreateWeightAttributeBuffer();
+                    skinnedSpatial.recreateJointAttributeBuffer();
                 }
             }, true);
 
@@ -346,6 +300,8 @@ public class AnimationCopyExample extends ExampleBase {
             final CullState cullState = new CullState();
             cullState.setCullFace(Face.Back);
             primeModel.setRenderState(cullState);
+
+            primeModel.setRenderMaterial(matCPU);
 
             for (int i = 0; i < 10; i++) {
                 for (int j = 0; j < 10; j++) {

@@ -1,25 +1,28 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.canvas;
 
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.ardor3d.annotation.MainThread;
+import com.ardor3d.framework.BasicScene;
 import com.ardor3d.framework.Canvas;
 import com.ardor3d.framework.Updater;
 import com.ardor3d.image.Texture;
-import com.ardor3d.input.InputState;
-import com.ardor3d.input.Key;
-import com.ardor3d.input.control.FirstPersonControl;
-import com.ardor3d.input.logical.AnyKeyCondition;
+import com.ardor3d.input.character.CharacterInputEvent;
+import com.ardor3d.input.control.OrbitCamControl;
+import com.ardor3d.input.keyboard.Key;
+import com.ardor3d.input.logical.AnyCharacterCondition;
 import com.ardor3d.input.logical.InputTrigger;
 import com.ardor3d.input.logical.KeyPressedCondition;
 import com.ardor3d.input.logical.KeyReleasedCondition;
@@ -34,15 +37,16 @@ import com.ardor3d.renderer.state.LightState;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.renderer.state.ZBufferState;
 import com.ardor3d.scenegraph.Mesh;
+import com.ardor3d.scenegraph.Spatial;
+import com.ardor3d.scenegraph.controller.SpatialController;
 import com.ardor3d.scenegraph.shape.Box;
-import com.ardor3d.ui.text.BasicText;
 import com.ardor3d.util.ReadOnlyTimer;
 import com.ardor3d.util.TextureManager;
 
 public class RotatingCubeGame implements Updater {
     // private final Canvas view;
-    private final ExampleScene scene;
-    private final Exit exit;
+    private final BasicScene scene;
+    private final AtomicBoolean exit;
     private final LogicalLayer logicalLayer;
     private final Key toggleRotationKey;
 
@@ -52,11 +56,11 @@ public class RotatingCubeGame implements Updater {
     private Mesh box;
     private final Matrix3 rotation = new Matrix3();
 
-    private static final int MOVE_SPEED = 4;
     private int rotationSign = 1;
+    private boolean rotationEnabled = true;
     private boolean inited;
 
-    public RotatingCubeGame(final ExampleScene scene, final Exit exit, final LogicalLayer logicalLayer,
+    public RotatingCubeGame(final BasicScene scene, final AtomicBoolean exit, final LogicalLayer logicalLayer,
             final Key toggleRotationKey) {
         this.scene = scene;
         this.exit = exit;
@@ -73,6 +77,7 @@ public class RotatingCubeGame implements Updater {
         // add a rotating controller to the cube
         // add a light
         box = new Box("The cube", new Vector3(-1, -1, -1), new Vector3(1, 1, 1));
+        box.setRenderMaterial("lit/textured/basic_phong.yaml");
 
         final ZBufferState buf = new ZBufferState();
         buf.setEnabled(true);
@@ -95,7 +100,7 @@ public class RotatingCubeGame implements Updater {
 
         light.setDiffuse(new ColorRGBA(r, g, b, a));
         light.setAmbient(new ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f));
-        light.setLocation(new Vector3(MOVE_SPEED, MOVE_SPEED, MOVE_SPEED));
+        light.setLocation(new Vector3(4, 4, 4));
         light.setEnabled(true);
 
         /** Attach the light to a lightState and the lightState to rootNode. */
@@ -108,30 +113,36 @@ public class RotatingCubeGame implements Updater {
 
         registerInputTriggers();
 
-        final BasicText text = BasicText.createDefaultTextLabel("test", "Hello World!");
-        scene.getRoot().attachChild(text);
-
         inited = true;
     }
 
     private void registerInputTriggers() {
-        final FirstPersonControl control = FirstPersonControl.setupTriggers(logicalLayer, Vector3.UNIT_Y, true);
-        control.setMoveSpeed(MOVE_SPEED);
+        final OrbitCamControl control = new OrbitCamControl(box);
+        control.setInvertedY(true);
+        control.setupMouseTriggers(logicalLayer, true);
+        control.setupGestureTriggers(logicalLayer);
+        control.setSphereCoords(15, 0, 0);
+
+        scene.getRoot().addController(new SpatialController<Spatial>() {
+            public void update(final double time, final Spatial caller) {
+                control.update(time);
+            };
+        });
 
         logicalLayer.registerTrigger(new InputTrigger(new KeyPressedCondition(Key.ESCAPE), new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputStates, final double tpf) {
-                exit.exit();
+                exit.set(true);
             }
         }));
 
         logicalLayer.registerTrigger(new InputTrigger(new KeyPressedCondition(toggleRotationKey), new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputStates, final double tpf) {
-                toggleRotation();
+                toggleRotationDirection();
             }
         }));
         logicalLayer.registerTrigger(new InputTrigger(new KeyReleasedCondition(Key.U), new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputStates, final double tpf) {
-                toggleRotation();
+                toggleRotationDirection();
             }
         }));
 
@@ -146,11 +157,12 @@ public class RotatingCubeGame implements Updater {
             }
         }));
 
-        logicalLayer.registerTrigger(new InputTrigger(new AnyKeyCondition(), new TriggerAction() {
-            public void perform(final Canvas source, final TwoInputStates inputStates, final double tpf) {
-                final InputState current = inputStates.getCurrent();
-
-                System.out.println("Key character pressed: " + current.getKeyboardState().getKeyEvent().getKeyChar());
+        logicalLayer.registerTrigger(new InputTrigger(new AnyCharacterCondition(), new TriggerAction() {
+            public void perform(final Canvas source, final TwoInputStates inputState, final double tpf) {
+                final List<CharacterInputEvent> events = inputState.getCurrent().getCharacterState().getEvents();
+                for (final CharacterInputEvent e : events) {
+                    System.out.println("Character entered: " + e.getValue());
+                }
             }
         }));
     }
@@ -168,8 +180,12 @@ public class RotatingCubeGame implements Updater {
         source.getCanvasRenderer().getCamera().setFrame(loc, left, up, dir);
     }
 
-    private void toggleRotation() {
+    private void toggleRotationDirection() {
         rotationSign *= -1;
+    }
+
+    public void toggleRotation() {
+        rotationEnabled = !rotationEnabled;
     }
 
     @MainThread
@@ -178,13 +194,17 @@ public class RotatingCubeGame implements Updater {
 
         logicalLayer.checkTriggers(tpf);
 
-        // rotate away
+        if (rotationEnabled) {
+            angle += tpf * CUBE_ROTATE_SPEED * rotationSign;
 
-        angle += tpf * CUBE_ROTATE_SPEED * rotationSign;
-
-        rotation.fromAngleAxis(angle, rotationAxis);
-        box.setRotation(rotation);
+            rotation.fromAngleAxis(angle, rotationAxis);
+            box.setRotation(rotation);
+        }
 
         scene.getRoot().updateGeometricState(tpf, true);
+    }
+
+    public Mesh getBox() {
+        return box;
     }
 }

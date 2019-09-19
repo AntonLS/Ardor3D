@@ -1,17 +1,20 @@
 /**
- * Copyright (c) 2008-2010 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
  
 varying float zDist; 
 
-void main(void){	
-	vec4 ePos = gl_ModelViewMatrix * gl_Vertex;
+void main(void){
+	// force w coord to 1 so we don't have to do anything special to get clipmap shadows to work. 
+	vec4 vertex = vec4(gl_Vertex.xyz, 1.0);
+	
+	vec4 ePos = gl_ModelViewMatrix * vertex;
 	
     gl_TexCoord[0] = gl_TextureMatrix[0] * ePos;
     gl_TexCoord[1] = gl_TextureMatrix[1] * ePos;
@@ -20,5 +23,5 @@ void main(void){
     
     zDist = -ePos.z;
  
-    gl_Position = ftransform();
+    gl_Position = gl_ModelViewProjectionMatrix * vertex; 
 }

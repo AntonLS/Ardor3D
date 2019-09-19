@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.scenegraph;
@@ -13,6 +13,11 @@ package com.ardor3d.scenegraph;
 import java.io.IOException;
 import java.nio.FloatBuffer;
 
+import com.ardor3d.math.ColorRGBA;
+import com.ardor3d.math.Quaternion;
+import com.ardor3d.math.Vector2;
+import com.ardor3d.math.Vector3;
+import com.ardor3d.math.Vector4;
 import com.ardor3d.util.export.InputCapsule;
 import com.ardor3d.util.export.OutputCapsule;
 import com.ardor3d.util.export.Savable;
@@ -23,9 +28,6 @@ import com.ardor3d.util.geom.BufferUtils;
  * a "tuple"
  */
 public class FloatBufferData extends AbstractBufferData<FloatBuffer> implements Savable {
-
-    /** Specifies the number of coordinates per vertex. Must be 1 - 4. */
-    private int _valuesPerTuple;
 
     /**
      * Instantiates a new FloatBufferData.
@@ -41,7 +43,7 @@ public class FloatBufferData extends AbstractBufferData<FloatBuffer> implements 
 
     /**
      * Creates a new FloatBufferData.
-     * 
+     *
      * @param buffer
      *            Buffer holding the data. Must not be null.
      * @param valuesPerTuple
@@ -65,30 +67,9 @@ public class FloatBufferData extends AbstractBufferData<FloatBuffer> implements 
         return 4;
     }
 
-    public int getTupleCount() {
-        return getBufferLimit() / _valuesPerTuple;
-    }
-
-    /**
-     * @return number of values per tuple
-     */
-    public int getValuesPerTuple() {
-        return _valuesPerTuple;
-    }
-
-    /**
-     * Set number of values per tuple. This method should only be used internally.
-     * 
-     * @param valuesPerTuple
-     *            number of values per tuple
-     */
-    void setValuesPerTuple(final int valuesPerTuple) {
-        _valuesPerTuple = valuesPerTuple;
-    }
-
     /**
      * Scale the data in this buffer by the given value(s)
-     * 
+     *
      * @param scales
      *            the scale values to use. The Nth buffer element is scaled by the (N % scales.length) scales element.
      */
@@ -103,7 +84,7 @@ public class FloatBufferData extends AbstractBufferData<FloatBuffer> implements 
 
     /**
      * Translate the data in this buffer by the given value(s)
-     * 
+     *
      * @param translates
      *            the translation values to use. The Nth buffer element is translated by the (N % translates.length)
      *            translates element.
@@ -115,6 +96,68 @@ public class FloatBufferData extends AbstractBufferData<FloatBuffer> implements 
             i++;
         }
         _buffer.rewind();
+    }
+
+    public void put(final float value) {
+        _buffer.put(value);
+    }
+
+    public void put(final Vector2 vector) {
+        _buffer.put(vector.getXf());
+        _buffer.put(vector.getYf());
+    }
+
+    public void put(final Vector3 vector) {
+        _buffer.put(vector.getXf());
+        _buffer.put(vector.getYf());
+        _buffer.put(vector.getZf());
+    }
+
+    public void put(final Vector4 vector) {
+        _buffer.put(vector.getXf());
+        _buffer.put(vector.getYf());
+        _buffer.put(vector.getZf());
+        _buffer.put(vector.getWf());
+    }
+
+    public void put(final Quaternion quat) {
+        _buffer.put(quat.getXf());
+        _buffer.put(quat.getYf());
+        _buffer.put(quat.getZf());
+        _buffer.put(quat.getWf());
+    }
+
+    public void putRGBA(final ColorRGBA color) {
+        _buffer.put(color.getRed());
+        _buffer.put(color.getGreen());
+        _buffer.put(color.getBlue());
+        _buffer.put(color.getAlpha());
+    }
+
+    public void putRGB(final ColorRGBA color) {
+        _buffer.put(color.getRed());
+        _buffer.put(color.getGreen());
+        _buffer.put(color.getBlue());
+    }
+
+    public void putBGRA(final ColorRGBA color) {
+        _buffer.put(color.getBlue());
+        _buffer.put(color.getGreen());
+        _buffer.put(color.getRed());
+        _buffer.put(color.getAlpha());
+    }
+
+    public void putABGR(final ColorRGBA color) {
+        _buffer.put(color.getAlpha());
+        _buffer.put(color.getBlue());
+        _buffer.put(color.getGreen());
+        _buffer.put(color.getRed());
+    }
+
+    public void putBGR(final ColorRGBA color) {
+        _buffer.put(color.getBlue());
+        _buffer.put(color.getGreen());
+        _buffer.put(color.getRed());
     }
 
     @Override

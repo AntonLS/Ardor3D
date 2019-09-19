@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.effect.particle;
@@ -64,6 +64,7 @@ public class ParticleMesh extends ParticleSystem {
 
     @Override
     protected void initializeParticles(final int numParticles) {
+        setRenderMaterial("particles/particle_mesh.yaml");
 
         if (_particleMesh != null) {
             detachChild(_particleMesh);
@@ -94,17 +95,13 @@ public class ParticleMesh extends ParticleSystem {
         switch (getParticleType()) {
             case GeomMesh:
             case Triangle:
-                sharedTextureData = new Vector2[] { new Vector2(2.0, 0.0), new Vector2(0.0, 2.0), new Vector2(0.0, 0.0) };
+                sharedTextureData = new Vector2[] { new Vector2(2.0, 0.0), new Vector2(0.0, 2.0),
+                        new Vector2(0.0, 0.0) };
                 meshData.setIndexMode(IndexMode.Triangles);
-                break;
-            case Quad:
-                sharedTextureData = new Vector2[] { new Vector2(1.0, 0.0), new Vector2(1.0, 1.0),
-                        new Vector2(0.0, 1.0), new Vector2(0.0, 0.0) };
-                meshData.setIndexMode(IndexMode.Quads);
                 break;
             default:
                 throw new IllegalStateException(
-                        "Particle Mesh may only have particle type of ParticleType.Quad, ParticleType.GeomMesh or ParticleType.Triangle");
+                        "Particle Mesh may only have particle type of ParticleType.GeomMesh or ParticleType.Triangle");
         }
 
         final int verts = getVertsForParticleType(getParticleType());
@@ -126,8 +123,9 @@ public class ParticleMesh extends ParticleSystem {
                 if (_particleType == ParticleSystem.ParticleType.GeomMesh && _useMeshTexCoords) {
                     final MeshEmitter source = (MeshEmitter) getParticleEmitter();
                     final Mesh sourceMesh = source.getSource();
-                    final int index = sourceMesh.getMeshData().getIndices() != null ? sourceMesh.getMeshData()
-                            .getIndices().get(ind) : ind;
+                    final int index = sourceMesh.getMeshData().getIndices() != null
+                            ? sourceMesh.getMeshData().getIndices().get(ind)
+                            : ind;
                     BufferUtils.populateFromBuffer(temp, sourceMesh.getMeshData().getTextureCoords(0).getBuffer(),
                             index);
                     BufferUtils.setInBuffer(temp, meshData.getTextureCoords(0).getBuffer(), ind);

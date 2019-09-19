@@ -1,0 +1,17 @@
+--- # Material
+name: unlit, textured, vertex color
+techniques: 
+  passes: 
+      - 
+        attributes:
+          - key: vertex
+          
+        uniforms: 
+          - builtIn: [model, view, projection, defaultColor, textureMatrix0]
+
+        shaders: 
+          Vertex: 
+            source: unlit/unlit.vert
+
+          Fragment:
+            source: unlit/unlit_modulate.frag

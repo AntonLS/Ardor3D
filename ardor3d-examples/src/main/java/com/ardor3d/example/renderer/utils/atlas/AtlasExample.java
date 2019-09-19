@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.renderer.utils.atlas;
@@ -13,6 +13,7 @@ package com.ardor3d.example.renderer.utils.atlas;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.imageio.ImageIO;
@@ -25,7 +26,7 @@ import com.ardor3d.framework.Canvas;
 import com.ardor3d.image.Texture;
 import com.ardor3d.image.Texture.WrapMode;
 import com.ardor3d.image.util.awt.AWTImageUtil;
-import com.ardor3d.input.Key;
+import com.ardor3d.input.keyboard.Key;
 import com.ardor3d.input.logical.InputTrigger;
 import com.ardor3d.input.logical.KeyPressedCondition;
 import com.ardor3d.input.logical.TriggerAction;
@@ -33,9 +34,6 @@ import com.ardor3d.input.logical.TwoInputStates;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Vector3;
-import com.ardor3d.renderer.queue.RenderBucketType;
-import com.ardor3d.renderer.state.MaterialState;
-import com.ardor3d.renderer.state.MaterialState.ColorMaterial;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.scenegraph.Mesh;
 import com.ardor3d.scenegraph.Node;
@@ -43,20 +41,18 @@ import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.scenegraph.hint.LightCombineMode;
 import com.ardor3d.scenegraph.shape.Box;
 import com.ardor3d.scenegraph.shape.Sphere;
-import com.ardor3d.scenegraph.visitor.Visitor;
 import com.ardor3d.ui.text.BasicText;
 import com.ardor3d.util.ReadOnlyTimer;
 import com.ardor3d.util.TextureManager;
 import com.ardor3d.util.geom.MeshCombiner;
-import com.google.common.collect.Lists;
 
 /**
  * Example showing how to use the TexturePacker to create a texture atlas. Also shows the benefits of using it together
  * with the MeshCombiner.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.basic.AtlasExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/basic_BoxExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/basic_BoxExample.jpg", //
+        maxHeapMemory = 64)
 public class AtlasExample extends ExampleBase {
 
     /** Text fields used to present info about the example. */
@@ -90,13 +86,13 @@ public class AtlasExample extends ExampleBase {
         // Use a separate node for packing/combining, otherwise we will get the text packed as well
         boxNode = new Node("boxes");
         _root.attachChild(boxNode);
+        _root.setRenderMaterial("unlit/textured/basic.yaml");
 
         resetBoxes();
 
         // Setup text labels for presenting example info.
         final Node textNodes = new Node("Text");
-        _root.attachChild(textNodes);
-        textNodes.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        _orthoRoot.attachChild(textNodes);
         textNodes.getSceneHints().setLightCombineMode(LightCombineMode.Off);
 
         final double infoStartY = _canvas.getCanvasRenderer().getCamera().getHeight() - 20;
@@ -141,10 +137,10 @@ public class AtlasExample extends ExampleBase {
         for (int i = 0; i < 40; i++) {
             createBox(boxNode, "images/ball.png", WrapMode.BorderClamp);
             createSphere(boxNode, "images/ball.png", WrapMode.BorderClamp);
-            createBox(boxNode, "images/trail.png", WrapMode.Clamp);
+            createBox(boxNode, "images/trail.png", WrapMode.EdgeClamp);
             createBox(boxNode, "images/flare.png", WrapMode.EdgeClamp);
-            createBox(boxNode, "images/flaresmall.jpg", WrapMode.MirrorBorderClamp);
-            createBox(boxNode, "icons/ardor3d_white_24.png", WrapMode.MirrorClamp);
+            createBox(boxNode, "images/flaresmall.jpg", WrapMode.MirrorEdgeClamp);
+            createBox(boxNode, "icons/ardor3d_white_24.png", WrapMode.MirrorEdgeClamp);
             createBox(boxNode, "icons/console.png", WrapMode.MirrorEdgeClamp);
             createBox(boxNode, "icons/declaration.png", WrapMode.MirroredRepeat);
             createBox(boxNode, "icons/list-add.png", WrapMode.Repeat);
@@ -155,16 +151,12 @@ public class AtlasExample extends ExampleBase {
 
     private void packIntoAtlas(final Spatial spatial) {
         // Gather up all meshes to do the atlas operation on
-        final List<Mesh> meshes = Lists.newArrayList();
-        final Visitor visitor = new Visitor() {
-            @Override
-            public void visit(final Spatial spatial) {
-                if (spatial instanceof Mesh) {
-                    meshes.add((Mesh) spatial);
-                }
+        final List<Mesh> meshes = new ArrayList<>();
+        spatial.acceptVisitor((final Spatial spat) -> {
+            if (spat instanceof Mesh) {
+                meshes.add((Mesh) spat);
             }
-        };
-        spatial.acceptVisitor(visitor, false);
+        }, false);
 
         // Create an atlas packer with maximum atlas size of 256x256
         final TexturePacker packer = new TexturePacker(256, 256);
@@ -199,8 +191,8 @@ public class AtlasExample extends ExampleBase {
         // Create box
         final Box box = new Box("Box", new Vector3(0, 0, 0), 1, 1, 1);
         box.setModelBound(new BoundingBox());
-        box.setTranslation(new Vector3(MathUtils.rand.nextInt(40) - 20, MathUtils.rand.nextInt(40) - 20, MathUtils.rand
-                .nextInt(40) - 100));
+        box.setTranslation(new Vector3(MathUtils.rand.nextInt(40) - 20, MathUtils.rand.nextInt(40) - 20,
+                MathUtils.rand.nextInt(40) - 100));
         parentNode.attachChild(box);
 
         setupStates(box, textureName, mode);
@@ -216,11 +208,6 @@ public class AtlasExample extends ExampleBase {
         texture.setBorderColor(ColorRGBA.RED);
         ts.setTexture(texture);
         mesh.setRenderState(ts);
-
-        // Add a material to the mesh, to show both vertex color and lighting/shading.
-        final MaterialState ms = new MaterialState();
-        ms.setColorMaterial(ColorMaterial.Diffuse);
-        mesh.setRenderState(ms);
     }
 
     public void debugDumpAtlases(final TexturePacker packer) {

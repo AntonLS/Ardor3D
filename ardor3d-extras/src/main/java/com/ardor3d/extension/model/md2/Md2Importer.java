@@ -1,26 +1,28 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.model.md2;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ardor3d.bounding.BoundingBox;
 import com.ardor3d.extension.model.util.KeyframeController;
 import com.ardor3d.image.Texture;
-import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.image.Texture.MinificationFilter;
+import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.renderer.IndexMode;
 import com.ardor3d.renderer.state.TextureState;
+import com.ardor3d.scenegraph.AbstractBufferData.VBOAccessMode;
 import com.ardor3d.scenegraph.FloatBufferData;
 import com.ardor3d.scenegraph.Mesh;
 import com.ardor3d.scenegraph.MeshData;
@@ -30,7 +32,6 @@ import com.ardor3d.util.TextureManager;
 import com.ardor3d.util.resource.ResourceLocator;
 import com.ardor3d.util.resource.ResourceLocatorTool;
 import com.ardor3d.util.resource.ResourceSource;
-import com.google.common.collect.Lists;
 
 public class Md2Importer {
 
@@ -93,7 +94,7 @@ public class Md2Importer {
 
     /**
      * Reads an MD2 file from the given resource
-     * 
+     *
      * @param resource
      *            a resource pointing to the model we wish to load.
      * @return an Md2DataStore data object containing the scene and other useful elements.
@@ -112,10 +113,10 @@ public class Md2Importer {
             final LittleEndianRandomAccessDataInput bis = new LittleEndianRandomAccessDataInput(md2Stream);
 
             // parse the header
-            final Md2Header header = new Md2Header(bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis
-                    .readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis
-                    .readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis
-                    .readInt());
+            final Md2Header header = new Md2Header(bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(),
+                    bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(),
+                    bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(), bis.readInt(),
+                    bis.readInt());
 
             // Check magic word and version
             if (header.magic != ('2' << 24) + ('P' << 16) + ('D' << 8) + 'I') {
@@ -159,8 +160,8 @@ public class Md2Importer {
             bis.seek(header.offsetGlCommands);
             int length, absLength;
             Md2GlCommand cmd;
-            final List<Integer> fanIndices = Lists.newArrayList();
-            final List<Integer> stripIndices = Lists.newArrayList();
+            final List<Integer> fanIndices = new ArrayList<>();
+            final List<Integer> stripIndices = new ArrayList<>();
             for (int i = 0; i < header.numGlCommands; i++) {
                 length = bis.readInt();
                 if (length == 0) {
@@ -239,6 +240,9 @@ public class Md2Importer {
                 mData.setVertexCoords(verts);
                 mData.setNormalCoords(norms);
                 mData.setTextureCoords(texs, 0);
+                verts.setVboAccessMode(VBOAccessMode.DynamicDraw);
+                norms.setVboAccessMode(VBOAccessMode.DynamicDraw);
+                texs.setVboAccessMode(VBOAccessMode.DynamicDraw);
 
                 // go through the triangle strips/fans and add them in
                 // first the strips
@@ -355,13 +359,15 @@ public class Md2Importer {
         if (_textureLocator == null) {
             tex = TextureManager.load(name, getMinificationFilter(),
                     isUseCompression() ? TextureStoreFormat.GuessCompressedFormat
-                            : TextureStoreFormat.GuessNoCompressedFormat, isFlipTextureVertically());
+                            : TextureStoreFormat.GuessNoCompressedFormat,
+                    isFlipTextureVertically());
         } else {
             final ResourceSource source = _textureLocator.locateResource(name);
             if (source != null) {
                 tex = TextureManager.load(source, getMinificationFilter(),
                         isUseCompression() ? TextureStoreFormat.GuessCompressedFormat
-                                : TextureStoreFormat.GuessNoCompressedFormat, isFlipTextureVertically());
+                                : TextureStoreFormat.GuessNoCompressedFormat,
+                        isFlipTextureVertically());
             }
         }
         return tex;
@@ -375,18 +381,18 @@ public class Md2Importer {
         norms.getBuffer().put(calcVert.getXf()).put(calcVert.getYf()).put(calcVert.getZf());
     }
 
-    private void addVert(final Md2GlCommand cmd, final Md2Frame frame, final int vertIndex, final FloatBufferData verts) {
+    private void addVert(final Md2GlCommand cmd, final Md2Frame frame, final int vertIndex,
+            final FloatBufferData verts) {
         final int index = cmd.vertIndices[vertIndex];
         final byte[] vertData = frame.vertData;
-        calcVert.set((vertData[index * 4 + 0] & 0xFF), (vertData[index * 4 + 1] & 0xFF),
-                (vertData[index * 4 + 2] & 0xFF));
+        calcVert.set(vertData[index * 4 + 0] & 0xFF, vertData[index * 4 + 1] & 0xFF, vertData[index * 4 + 2] & 0xFF);
         calcVert.multiplyLocal(frame.scale).addLocal(frame.translate);
         verts.getBuffer().put(calcVert.getXf()).put(calcVert.getYf()).put(calcVert.getZf());
     }
 
     /**
      * Reads a MD2 file from the given resource
-     * 
+     *
      * @param resource
      *            the name of the resource to find.
      * @return an ObjGeometryStore data object containing the scene and other useful elements.

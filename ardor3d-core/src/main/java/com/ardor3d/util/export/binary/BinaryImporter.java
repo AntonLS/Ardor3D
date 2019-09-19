@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.util.export.binary;
@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,24 +32,24 @@ import com.ardor3d.util.export.Ardor3dImporter;
 import com.ardor3d.util.export.ByteUtils;
 import com.ardor3d.util.export.ReadListener;
 import com.ardor3d.util.export.Savable;
-import com.google.common.collect.Maps;
 
 public class BinaryImporter implements Ardor3dImporter {
     private static final Logger logger = Logger.getLogger(BinaryImporter.class.getName());
 
     // Key - alias, object - bco
-    protected final Map<String, BinaryClassObject> _classes = Maps.newHashMap();
+    protected final Map<String, BinaryClassObject> _classes = new HashMap<>();
     // Key - id, object - the savable
-    protected final Map<Integer, Savable> _contentTable = Maps.newHashMap();
+    protected final Map<Integer, Savable> _contentTable = new HashMap<>();
     // Key - savable, object - capsule
-    protected final Map<Savable, BinaryInputCapsule> _capsuleTable = Maps.newIdentityHashMap();
+    protected final Map<Savable, BinaryInputCapsule> _capsuleTable = new IdentityHashMap<>();
     // Key - id, opject - location in the file
-    protected final Map<Integer, Integer> _locationTable = Maps.newHashMap();
+    protected final Map<Integer, Integer> _locationTable = new HashMap<>();
 
     protected byte[] _dataArray = null;
     protected int _aliasWidth = 0;
 
-    public BinaryImporter() {}
+    public BinaryImporter() {
+    }
 
     public Savable load(final InputStream is) throws IOException {
         return load(is, null, null);
@@ -214,8 +215,8 @@ public class BinaryImporter implements Ardor3dImporter {
             final BinaryClassObject bco = _classes.get(alias);
 
             if (bco == null) {
-                logger.logp(Level.SEVERE, this.getClass().toString(), "readObject(int id)", "NULL class object: "
-                        + alias);
+                logger.logp(Level.SEVERE, this.getClass().toString(), "readObject(int id)",
+                        "NULL class object: " + alias);
                 return null;
             }
 
@@ -240,18 +241,13 @@ public class BinaryImporter implements Ardor3dImporter {
             } catch (final InstantiationException e) {
                 logger.logp(Level.SEVERE, this.getClass().toString(), "readObject(int)",
                         "Could not access constructor of class '" + bco._className + "'! \n"
-                                + "Some types may require the annotation SavableFactory.  Please double check.", e);
+                                + "Some types may require the annotation SavableFactory.  Please double check.",
+                        e);
                 throw new Ardor3dException(e);
             } catch (final NoSuchMethodException e) {
-                logger
-                        .logp(
-                                Level.SEVERE,
-                                this.getClass().toString(),
-                                "readObject(int)",
-                                e.getMessage()
-                                        + " \n"
-                                        + "Method specified in annotation does not appear to exist or has an invalid method signature.",
-                                e);
+                logger.logp(Level.SEVERE, this.getClass().toString(), "readObject(int)", e.getMessage() + " \n"
+                        + "Method specified in annotation does not appear to exist or has an invalid method signature.",
+                        e);
                 throw new Ardor3dException(e);
             }
 

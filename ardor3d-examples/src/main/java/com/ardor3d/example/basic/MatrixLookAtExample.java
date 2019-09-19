@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.basic;
@@ -20,12 +20,11 @@ import com.ardor3d.image.Texture;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Matrix3;
 import com.ardor3d.math.Vector3;
-import com.ardor3d.renderer.state.MaterialState;
-import com.ardor3d.renderer.state.MaterialState.ColorMaterial;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.scenegraph.Mesh;
 import com.ardor3d.scenegraph.shape.Box;
 import com.ardor3d.scenegraph.shape.Sphere;
+import com.ardor3d.util.MaterialUtil;
 import com.ardor3d.util.ReadOnlyTimer;
 import com.ardor3d.util.TextureManager;
 
@@ -34,8 +33,8 @@ import com.ardor3d.util.TextureManager;
  * position to a given target position.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.basic.MatrixLookAtExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/basic_MatrixLookAtExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/basic_MatrixLookAtExample.jpg", //
+        maxHeapMemory = 64)
 public class MatrixLookAtExample extends ExampleBase {
 
     private Mesh targetMesh;
@@ -96,10 +95,8 @@ public class MatrixLookAtExample extends ExampleBase {
         ts.setEnabled(true);
         ts.setTexture(TextureManager.load("images/ardor3d_white_256.jpg", Texture.MinificationFilter.Trilinear, true));
 
-        final MaterialState ms = new MaterialState();
-        ms.setColorMaterial(ColorMaterial.Diffuse);
-        _root.setRenderState(ms);
-
         _root.setRenderState(ts);
+        _root.updateWorldRenderStates(true);
+        MaterialUtil.autoMaterials(_root);
     }
 }

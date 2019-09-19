@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.util.stat.graph;
@@ -19,7 +19,6 @@ import java.util.List;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.math.type.ReadOnlyVector3;
-import com.ardor3d.renderer.ContextCapabilities;
 import com.ardor3d.renderer.IndexMode;
 import com.ardor3d.renderer.Renderer;
 import com.ardor3d.renderer.queue.RenderBucketType;
@@ -40,7 +39,7 @@ public class LineGrapher extends AbstractStatGrapher implements TableLinkable {
     public static final StatType Horizontal = new StatType("_lineGrapher_horiz");
 
     public enum ConfigKeys {
-        ShowPoints, PointSize, PointColor, Antialias, ShowLines, Width, Stipple, Color, FrameAverage,
+        ShowPoints, PointSize, PointColor, Antialias, ShowLines, Width, Color, FrameAverage,
     }
 
     protected Node _graphRoot = new Node("root");
@@ -57,8 +56,8 @@ public class LineGrapher extends AbstractStatGrapher implements TableLinkable {
 
     private BlendState _defBlendState = null;
 
-    public LineGrapher(final int width, final int height, final Renderer renderer, final ContextCapabilities caps) {
-        super(width, height, renderer, caps);
+    public LineGrapher(final int width, final int height, final Renderer renderer) {
+        super(width, height, renderer);
 
         // Setup our static horizontal graph lines
         createHLines();
@@ -134,8 +133,9 @@ public class LineGrapher extends AbstractStatGrapher implements TableLinkable {
                             _entries.put(type, entry);
                         }
 
-                        final double value = getBooleanConfig(type, ConfigKeys.FrameAverage.name(), false) ? sample
-                                .getStatValue(type).getAverageValue() : sample.getStatValue(type).getAccumulatedValue();
+                        final double value = getBooleanConfig(type, ConfigKeys.FrameAverage.name(), false)
+                                ? sample.getStatValue(type).getAverageValue()
+                                : sample.getStatValue(type).getAccumulatedValue();
 
                         final Vector3 point = new Vector3(i, value, 0);
                         // Now, add
@@ -188,7 +188,7 @@ public class LineGrapher extends AbstractStatGrapher implements TableLinkable {
 
         // - Now, draw to texture via a TextureRenderer
         _graphRoot.updateGeometricState(0, true);
-        _textureRenderer.render(_graphRoot, _texture, Renderer.BUFFER_COLOR_AND_DEPTH);
+        _textureRenderer.renderSpatial(_graphRoot, _texture, Renderer.BUFFER_COLOR_AND_DEPTH);
 
         // Turn stat collection back on.
         StatCollector.resume();
@@ -230,14 +230,11 @@ public class LineGrapher extends AbstractStatGrapher implements TableLinkable {
 
         _horizontals = new Line("horiz", verts, null, null, null);
         _horizontals.getMeshData().setIndexMode(IndexMode.Lines);
-        _horizontals.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        _horizontals.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
 
-        _horizontals.setDefaultColor(getColorConfig(LineGrapher.Horizontal, ConfigKeys.Color.name(), new ColorRGBA(
-                ColorRGBA.BLUE)));
+        _horizontals.setDefaultColor(
+                getColorConfig(LineGrapher.Horizontal, ConfigKeys.Color.name(), new ColorRGBA(ColorRGBA.BLUE)));
         _horizontals.setLineWidth(getIntConfig(LineGrapher.Horizontal, ConfigKeys.Width.name(), 1));
-        _horizontals
-                .setStipplePattern(getShortConfig(LineGrapher.Horizontal, ConfigKeys.Stipple.name(), (short) 0xFF00));
-        _horizontals.setAntialiased(getBooleanConfig(LineGrapher.Horizontal, ConfigKeys.Antialias.name(), true));
     }
 
     // - Setup enough vertical bars to have one at every (10 X samplerate)
@@ -256,13 +253,11 @@ public class LineGrapher extends AbstractStatGrapher implements TableLinkable {
 
         _verticals = new Line("vert", verts, null, null, null);
         _verticals.getMeshData().setIndexMode(IndexMode.Lines);
-        _verticals.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        _verticals.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
 
-        _verticals.setDefaultColor(getColorConfig(LineGrapher.Vertical, ConfigKeys.Color.name(), new ColorRGBA(
-                ColorRGBA.RED)));
+        _verticals.setDefaultColor(
+                getColorConfig(LineGrapher.Vertical, ConfigKeys.Color.name(), new ColorRGBA(ColorRGBA.RED)));
         _verticals.setLineWidth(getIntConfig(LineGrapher.Vertical, ConfigKeys.Width.name(), 1));
-        _verticals.setStipplePattern(getShortConfig(LineGrapher.Vertical, ConfigKeys.Stipple.name(), (short) 0xFF00));
-        _verticals.setAntialiased(getBooleanConfig(LineGrapher.Vertical, ConfigKeys.Antialias.name(), true));
     }
 
     class LineEntry {
@@ -278,23 +273,20 @@ public class LineGrapher extends AbstractStatGrapher implements TableLinkable {
             this.maxSamples = maxSamples;
 
             point = new Point("p", BufferUtils.createVector3Buffer(maxSamples), null, null, null);
-            point.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+            point.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
 
             point.setDefaultColor(getColorConfig(type, ConfigKeys.PointColor.name(), new ColorRGBA(ColorRGBA.WHITE)));
             point.setPointSize(getIntConfig(type, ConfigKeys.PointSize.name(), 5));
-            point.setAntialiased(getBooleanConfig(type, ConfigKeys.Antialias.name(), true));
             if (!getBooleanConfig(type, ConfigKeys.ShowPoints.name(), false)) {
                 point.getSceneHints().setCullHint(CullHint.Always);
             }
 
             line = new Line("l", BufferUtils.createVector3Buffer(maxSamples), null, null, null);
-            line.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+            line.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
             line.getMeshData().setIndexMode(IndexMode.LineStrip);
 
             line.setDefaultColor(getColorConfig(type, ConfigKeys.Color.name(), new ColorRGBA(ColorRGBA.LIGHT_GRAY)));
             line.setLineWidth(getIntConfig(type, ConfigKeys.Width.name(), 3));
-            line.setStipplePattern(getShortConfig(type, ConfigKeys.Stipple.name(), (short) 0xFFFF));
-            line.setAntialiased(getBooleanConfig(type, ConfigKeys.Antialias.name(), true));
             if (!getBooleanConfig(type, ConfigKeys.ShowLines.name(), true)) {
                 line.getSceneHints().setCullHint(CullHint.Always);
             }
@@ -304,19 +296,17 @@ public class LineGrapher extends AbstractStatGrapher implements TableLinkable {
     public Line updateLineKey(final StatType type, Line lineKey) {
         if (lineKey == null) {
             lineKey = new Line("lk", BufferUtils.createVector3Buffer(2), null, null, null);
-            final FloatBuffer fb = BufferUtils.createFloatBuffer(new Vector3[] { new Vector3(0, 0, 0),
-                    new Vector3(30, 0, 0) });
+            final FloatBuffer fb = BufferUtils
+                    .createFloatBuffer(new Vector3[] { new Vector3(0, 0, 0), new Vector3(30, 0, 0) });
             fb.rewind();
             lineKey.getMeshData().setVertexBuffer(fb);
         }
 
-        lineKey.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        lineKey.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
         lineKey.getMeshData().setIndexMode(IndexMode.LineStrip);
 
         lineKey.setDefaultColor(getColorConfig(type, ConfigKeys.Color.name(), new ColorRGBA(ColorRGBA.LIGHT_GRAY)));
         lineKey.setLineWidth(getIntConfig(type, ConfigKeys.Width.name(), 3));
-        lineKey.setStipplePattern(getShortConfig(type, ConfigKeys.Stipple.name(), (short) 0xFFFF));
-        lineKey.setAntialiased(getBooleanConfig(type, ConfigKeys.Antialias.name(), true));
         if (!getBooleanConfig(type, ConfigKeys.ShowLines.name(), true)) {
             lineKey.getSceneHints().setCullHint(CullHint.Always);
         }

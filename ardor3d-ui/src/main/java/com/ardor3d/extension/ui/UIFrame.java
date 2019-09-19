@@ -1,17 +1,16 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
 
 import java.util.EnumSet;
-import java.util.concurrent.Callable;
 
 import com.ardor3d.extension.ui.backdrop.SolidBackdrop;
 import com.ardor3d.extension.ui.event.DragListener;
@@ -19,20 +18,13 @@ import com.ardor3d.extension.ui.event.FrameDragListener;
 import com.ardor3d.extension.ui.layout.BorderLayout;
 import com.ardor3d.extension.ui.layout.BorderLayoutData;
 import com.ardor3d.math.ColorRGBA;
-import com.ardor3d.math.Rectangle2;
-import com.ardor3d.renderer.Camera;
-import com.ardor3d.util.GameTaskQueueManager;
+import com.ardor3d.scenegraph.Spatial;
 
 /**
  * A component similar to an inner frame in Swing. It can be dragged around the screen, minimized, expanded, closed, and
  * resized. Frames can also have their opacity individually assigned which will affect all elements drawn within them.
  */
 public class UIFrame extends UIContainer {
-    /** Minimum height we'll allow during manual resize */
-    public static int MIN_FRAME_HEIGHT = 60;
-    /** Minimum width we'll allow during manual resize */
-    public static int MIN_FRAME_WIDTH = 100;
-
     /** The main panel containing the contents panel and status bar of the frame. */
     private final UIPanel _basePanel;
     /** The panel meant to hold the contents of the frame. */
@@ -64,7 +56,7 @@ public class UIFrame extends UIContainer {
 
     /**
      * Construct a new UIFrame with the given title and default buttons (CLOSE).
-     * 
+     *
      * @param title
      *            the text to display on the title bar of this frame
      */
@@ -74,7 +66,7 @@ public class UIFrame extends UIContainer {
 
     /**
      * Construct a new UIFrame with the given title and button.
-     * 
+     *
      * @param title
      *            the text to display on the title bar of this frame
      * @param buttons
@@ -83,13 +75,13 @@ public class UIFrame extends UIContainer {
     public UIFrame(final String title, final EnumSet<FrameButtons> buttons) {
         setLayout(new BorderLayout());
 
-        _basePanel = new UIPanel(new BorderLayout());
+        _basePanel = new UIPanel("basePanel", new BorderLayout());
         _basePanel.setBackdrop(new SolidBackdrop(ColorRGBA.LIGHT_GRAY));
         _basePanel.setLayoutData(BorderLayoutData.CENTER);
         _basePanel.setConsumeMouseEvents(true);
         add(_basePanel);
 
-        _contentPanel = new UIPanel();
+        _contentPanel = new UIPanel("contentPanel");
         _contentPanel.setLayoutData(BorderLayoutData.CENTER);
         _basePanel.add(_contentPanel);
 
@@ -201,7 +193,7 @@ public class UIFrame extends UIContainer {
 
     /**
      * Remove this frame from the hud it is attached to.
-     * 
+     *
      * @throws IllegalStateException
      *             if frame is not currently attached to a hud.
      */
@@ -220,41 +212,16 @@ public class UIFrame extends UIContainer {
         // clear any resources for standin
         clearStandin();
 
+        // clean up any state
+        acceptVisitor((final Spatial spatial) -> {
+            if (spatial instanceof StateBasedUIComponent) {
+                final StateBasedUIComponent comp = (StateBasedUIComponent) spatial;
+                comp.switchState(comp.getDefaultState());
+            }
+        }, true);
+
         hud.remove(this);
         _parent = null;
-    }
-
-    /**
-     * Centers this frame on the location of the given component.
-     * 
-     * @param comp
-     *            the component to center on.
-     */
-    public void setLocationRelativeTo(final UIComponent comp) {
-        final Rectangle2 rectA = comp.getRelativeComponentBounds(null);
-        final Rectangle2 rectB = getRelativeComponentBounds(null);
-        int x = (rectA.getWidth() - rectB.getWidth()) / 2;
-        int y = (rectA.getHeight() - rectB.getHeight()) / 2;
-        x += comp.getHudX() - rectA.getX() + rectB.getX();
-        y += comp.getHudY() - rectA.getY() + rectB.getY();
-        setHudXY(x, y);
-        updateGeometricState(0);
-    }
-
-    /**
-     * Centers this frame on the view of the camera
-     * 
-     * @param cam
-     *            the camera to center on.
-     */
-    public void setLocationRelativeTo(final Camera cam) {
-        final Rectangle2 rectA = getRelativeComponentBounds(null);
-        int x = (cam.getWidth() - rectA.getWidth()) / 2;
-        int y = (cam.getHeight() - rectA.getHeight()) / 2;
-        x -= rectA.getX();
-        y -= rectA.getY();
-        setHudXY(x, y);
-        updateGeometricState(0);
     }
 
     /**
@@ -287,7 +254,7 @@ public class UIFrame extends UIContainer {
 
     /**
      * Replaces the content panel of this frame with a new one.
-     * 
+     *
      * @param panel
      *            the new content panel.
      */
@@ -311,7 +278,7 @@ public class UIFrame extends UIContainer {
 
     /**
      * Sets the title of this frame
-     * 
+     *
      * @param title
      *            the new title
      */
@@ -339,26 +306,14 @@ public class UIFrame extends UIContainer {
         }
     }
 
-    /**
-     * Resize the frame to fit the minimum size of its content panel.
-     */
+    @Override
     public void pack() {
-        _contentPanel.updateMinimumSizeFromContents();
-        pack(_contentPanel.getMinimumLocalComponentWidth(), _contentPanel.getMinimumLocalComponentHeight());
-    }
-
-    /**
-     * Resize the frame to fit its content panel to the given dimensions
-     * 
-     * @param contentWidth
-     *            our desired content panel width
-     * @param contentHeight
-     *            our desired content panel height
-     */
-    public void pack(final int contentWidth, final int contentHeight) {
+        updateMinimumSizeFromContents();
         // grab the desired width and height of the frame.
-        final int width = contentWidth + _basePanel.getTotalLeft() + _basePanel.getTotalRight();
-        int height = contentHeight + _basePanel.getTotalTop() + _basePanel.getTotalBottom();
+        final int width = _contentPanel.getMinimumLocalComponentWidth() + _basePanel.getTotalLeft()
+                + _basePanel.getTotalRight();
+        int height = _contentPanel.getMinimumLocalComponentHeight() + _basePanel.getTotalTop()
+                + _basePanel.getTotalBottom();
 
         // add in our frame chrome, if it is enabled.
         if (isDecorated()) {
@@ -366,32 +321,15 @@ public class UIFrame extends UIContainer {
         }
 
         // Set our size, obeying min sizes.
-        setLocalComponentSize(Math.max(width, UIFrame.MIN_FRAME_WIDTH), Math.max(height, UIFrame.MIN_FRAME_HEIGHT));
+        setLocalComponentSize(width, height);
 
         // Layout the panel
         layout();
     }
 
     /**
-     * Causes our shared texture renderer - used to draw cached versions of all frames - to be recreated on the next
-     * render loop.
-     */
-    public static void resetTextureRenderer(final Object queueKey) {
-        final Callable<Void> exe = new Callable<Void>() {
-            public Void call() {
-                if (UIContainer._textureRenderer != null) {
-                    UIContainer._textureRenderer.cleanup();
-                }
-                UIContainer._textureRenderer = null;
-                return null;
-            }
-        };
-        GameTaskQueueManager.getManager(queueKey).render(exe);
-    }
-
-    /**
      * Recursive convenience method for locating the first UIFrame above a given component.
-     * 
+     *
      * @param component
      *            the component to look above.
      * @return the first UIFrame found above the given component, or null if none.
@@ -408,7 +346,7 @@ public class UIFrame extends UIContainer {
 
     /**
      * Set a new drag listener on this frame.
-     * 
+     *
      * @param listener
      *            the drag listener. Must not be null.
      */

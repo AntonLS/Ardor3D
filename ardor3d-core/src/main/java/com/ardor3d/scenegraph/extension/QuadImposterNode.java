@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.scenegraph.extension;
@@ -23,13 +23,11 @@ import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Vector2;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.renderer.Camera;
-import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.TextureRenderer;
-import com.ardor3d.renderer.TextureRendererFactory;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
 import com.ardor3d.renderer.state.TextureState;
+import com.ardor3d.renderer.texture.TextureRenderer;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.scenegraph.hint.LightCombineMode;
@@ -165,8 +163,7 @@ public class QuadImposterNode extends Node {
     }
 
     private void init(final Renderer renderer) {
-        _tRenderer = TextureRendererFactory.INSTANCE.createTextureRenderer(_twidth, _theight, _depth, _samples,
-                renderer, ContextManager.getCurrentContext().getCapabilities());
+        _tRenderer = renderer.createTextureRenderer(_twidth, _theight, _depth, _samples);
 
         _tRenderer.setBackgroundColor(new ColorRGBA(0, 0, 0, 0));
         resetTexture();
@@ -359,7 +356,7 @@ public class QuadImposterNode extends Node {
     }
 
     public void renderImposter() {
-        _tRenderer.render(_targetScene, _texture, Renderer.BUFFER_COLOR_AND_DEPTH);
+        _tRenderer.renderSpatial(_targetScene, _texture, Renderer.BUFFER_COLOR_AND_DEPTH);
     }
 
     public Vector3 getWorldUpVector() {
@@ -384,12 +381,12 @@ public class QuadImposterNode extends Node {
     @Override
     public void read(final InputCapsule capsule) throws IOException {
         super.read(capsule);
-        _texture = (Texture2D) capsule.readSavable("texture", null);
-        _targetScene = (Node) capsule.readSavable("targetScene", null);
-        _imposterQuad = (Quad) capsule.readSavable("standIn", new Quad("ImposterQuad"));
+        _texture = capsule.readSavable("texture", null);
+        _targetScene = capsule.readSavable("targetScene", null);
+        _imposterQuad = capsule.readSavable("standIn", new Quad("ImposterQuad"));
         _redrawRate = capsule.readFloat("redrawRate", 0.05f);
         _cameraAngleThreshold = capsule.readFloat("cameraThreshold", 0);
-        _worldUpVector = (Vector3) capsule.readSavable("worldUpVector", new Vector3(Vector3.UNIT_Y));
+        _worldUpVector = capsule.readSavable("worldUpVector", (Vector3) Vector3.UNIT_Y);
     }
 
     public Texture getTexture() {

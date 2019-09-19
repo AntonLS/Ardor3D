@@ -1,27 +1,28 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
 
 import java.nio.FloatBuffer;
+import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.ardor3d.extension.ui.layout.RowLayout;
 import com.ardor3d.extension.ui.layout.UILayout;
 import com.ardor3d.extension.ui.util.UIQuad;
-import com.ardor3d.image.Texture2D;
-import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.image.Texture.MagnificationFilter;
 import com.ardor3d.image.Texture.MinificationFilter;
 import com.ardor3d.image.Texture.WrapMode;
+import com.ardor3d.image.Texture2D;
+import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Matrix3;
 import com.ardor3d.math.Rectangle2;
@@ -29,19 +30,19 @@ import com.ardor3d.math.type.ReadOnlyVector3;
 import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.TextureRenderer;
-import com.ardor3d.renderer.TextureRendererFactory;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
-import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.renderer.state.BlendState.DestinationFunction;
 import com.ardor3d.renderer.state.BlendState.SourceFunction;
 import com.ardor3d.renderer.state.BlendState.TestFunction;
+import com.ardor3d.renderer.state.TextureState;
+import com.ardor3d.renderer.texture.TextureRenderer;
 import com.ardor3d.scenegraph.Spatial;
 import com.ardor3d.scenegraph.hint.CullHint;
 import com.ardor3d.scenegraph.hint.LightCombineMode;
 import com.ardor3d.scenegraph.hint.PickingHint;
 import com.ardor3d.scenegraph.hint.TextureCombineMode;
+import com.ardor3d.util.GameTaskQueueManager;
 
 /**
  * Defines a component that can hold and manage other components or containers, using a layout manager to position and
@@ -49,6 +50,7 @@ import com.ardor3d.scenegraph.hint.TextureCombineMode;
  */
 public abstract class UIContainer extends UIComponent {
     private static final Logger _logger = Logger.getLogger(UIContainer.class.getName());
+    public static int STANDIN_TEXTURE_SIZE = 4096;
 
     /** Layout responsible for managing the size and position of this container's contents. */
     private UILayout _layout = new RowLayout(true);
@@ -87,7 +89,7 @@ public abstract class UIContainer extends UIComponent {
 
     /**
      * Checks to see if a given UIComponent is in this container.
-     * 
+     *
      * @param component
      *            the component to look for
      * @return true if the given component is in this container.
@@ -98,7 +100,7 @@ public abstract class UIContainer extends UIComponent {
 
     /**
      * Checks to see if a given UIComponent is in this container or (if instructed) its subcontainers.
-     * 
+     *
      * @param component
      *            the component to look for
      * @param recurse
@@ -121,7 +123,7 @@ public abstract class UIContainer extends UIComponent {
 
     /**
      * Add a component to this container.
-     * 
+     *
      * @param component
      *            the component to add
      */
@@ -137,7 +139,7 @@ public abstract class UIContainer extends UIComponent {
 
     /**
      * Remove a component from this container.
-     * 
+     *
      * @param component
      *            the component to remove
      */
@@ -152,7 +154,7 @@ public abstract class UIContainer extends UIComponent {
     /**
      * Removes all UI components from this container. If other types of Spatials are attached to this container, they
      * are ignored.
-     * 
+     *
      * @param comp
      *            the component to remove
      */
@@ -281,7 +283,7 @@ public abstract class UIContainer extends UIComponent {
             if (_doClip && getWorldRotation().isIdentity()) {
                 _clipRectangleStore.set(getHudX() + getTotalLeft(), getHudY() + getTotalBottom(), getContentWidth(),
                         getContentHeight());
-                renderer.pushClip(_clipRectangleStore);
+                renderer.getScissorUtils().pushClip(_clipRectangleStore);
                 needsPop = true;
             }
             Spatial child;
@@ -292,7 +294,7 @@ public abstract class UIContainer extends UIComponent {
                 }
             }
             if (needsPop) {
-                renderer.popClip();
+                renderer.getScissorUtils().popClip();
             }
         }
     }
@@ -313,7 +315,7 @@ public abstract class UIContainer extends UIComponent {
 
         // If we are currently in the process of rendering this container to a texture...
         if (UIContainer._drawingStandin) {
-            renderer.setOrtho();
+            getHud().getHudCamera().apply(renderer);
 
             // hold onto our old translation
             final ReadOnlyVector3 wTrans = getWorldTranslation();
@@ -340,8 +342,6 @@ public abstract class UIContainer extends UIComponent {
             setWorldRotation(rot);
             updateWorldTransform(true);
 
-            renderer.unsetOrtho();
-
             // exit
             return;
         }
@@ -362,8 +362,9 @@ public abstract class UIContainer extends UIComponent {
 
         // Otherwise we are not rendering to texture and we are using standins...
         // So check if we are dirty.
-        if (isDirty()) {
-            renderer.unsetOrtho();
+        if (isDirty() || _standin == null) {
+            getHud().getCanvas().getCanvasRenderer().getCamera().apply(renderer);
+
             // Check if we have a standin yet
             if (_standin == null) {
                 try {
@@ -383,7 +384,7 @@ public abstract class UIContainer extends UIComponent {
                 // Set our opacity to 1.0 for the cached texture
                 setOpacity(1.0f);
                 // render the container to a texture
-                UIContainer._textureRenderer.render(this, _fakeTexture, Renderer.BUFFER_COLOR_AND_DEPTH);
+                UIContainer._textureRenderer.renderSpatial(this, _fakeTexture, Renderer.BUFFER_COLOR_AND_DEPTH);
                 // return our old transparency
                 setOpacity(op);
                 UIContainer._drawingStandin = false;
@@ -407,7 +408,7 @@ public abstract class UIContainer extends UIComponent {
 
                 _dirty = false;
             }
-            renderer.setOrtho();
+            getHud().getHudCamera().apply(renderer);
         }
 
         // Now, render the standin quad.
@@ -428,29 +429,29 @@ public abstract class UIContainer extends UIComponent {
             _standin.setWorldTranslation(x, y, getWorldTranslation().getZ());
             _standin.setWorldRotation(getWorldRotation());
 
-            final boolean clipTest = renderer.isClipTestEnabled();
-            renderer.setClipTestEnabled(false);
+            final boolean clipTest = renderer.getScissorUtils().isClipTestEnabled();
+            renderer.getScissorUtils().setClipTestEnabled(false);
             // draw our standin quad with cached container texture.
             _standin.draw(renderer);
-            renderer.setClipTestEnabled(clipTest);
+            renderer.getScissorUtils().setClipTestEnabled(clipTest);
         }
     }
 
     /**
      * Build our standin quad and (as necessary) a texture renderer.
-     * 
+     *
      * @param renderer
      *            the renderer to use if we need to generate a texture renderer
      */
     private void buildStandin(final Renderer renderer) {
         // Check for and create a texture renderer if none exists yet.
         if (UIContainer._textureRenderer == null) {
-            final Camera cam = Camera.getCurrentCamera();
-            UIContainer._textureRenderer = TextureRendererFactory.INSTANCE.createTextureRenderer(cam.getWidth(), cam
-                    .getHeight(), renderer, ContextManager.getCurrentContext().getCapabilities());
+            final int maxRBS = ContextManager.getCurrentContext().getCapabilities().getMaxRenderBufferSize();
+            final int size = maxRBS > 0 ? Math.min(UIContainer.STANDIN_TEXTURE_SIZE, maxRBS)
+                    : UIContainer.STANDIN_TEXTURE_SIZE;
+            UIContainer._textureRenderer = renderer.createTextureRenderer(size, size, 16, 0);
             if (UIContainer._textureRenderer != null) {
                 UIContainer._textureRenderer.setBackgroundColor(new ColorRGBA(0f, 1f, 0f, 0f));
-                UIContainer._textureRenderer.setMultipleTargets(true);
             } else {
                 // Can't make standin.
                 _useStandin = false;
@@ -459,6 +460,8 @@ public abstract class UIContainer extends UIComponent {
         }
 
         _standin = new UIQuad("container_standin", 1, 1);
+        _standin.setRenderMaterial("ui/textured/default_color.yaml");
+
         // no frustum culling checks
         _standin.getSceneHints().setCullHint(CullHint.Never);
         // no lighting
@@ -499,6 +502,23 @@ public abstract class UIContainer extends UIComponent {
         final TextureState ts = new TextureState();
         ts.setTexture(_fakeTexture);
         _standin.setRenderState(ts);
+    }
+
+    /**
+     * Causes our shared texture renderer - used to draw cached versions of all containers - to be recreated on the next
+     * render loop.
+     */
+    public static void resetTextureRenderer(final Object queueKey) {
+        final Callable<Void> exe = new Callable<Void>() {
+            public Void call() {
+                if (UIContainer._textureRenderer != null) {
+                    UIContainer._textureRenderer.cleanup();
+                }
+                UIContainer._textureRenderer = null;
+                return null;
+            }
+        };
+        GameTaskQueueManager.getManager(queueKey).render(exe);
     }
 
     /**
@@ -548,7 +568,7 @@ public abstract class UIContainer extends UIComponent {
     }
 
     /**
-     * 
+     *
      * @param doClip
      *            true (default) if we want this container to clip the drawing of its contents to the dimensions of its
      *            content area.
@@ -575,7 +595,7 @@ public abstract class UIContainer extends UIComponent {
     }
 
     /**
-     * 
+     *
      * @return true if we should use a cached texture copy to draw this container.
      * @see #setUseStandin(boolean)
      */
@@ -592,7 +612,7 @@ public abstract class UIContainer extends UIComponent {
 
     /**
      * Set the minification filter for the standin.
-     * 
+     *
      * @param filter
      */
     public void setMinificationFilter(final MinificationFilter filter) {

@@ -1,0 +1,16 @@
+--- # Material
+name: untextured pbr
+techniques: 
+  passes: 
+      - 
+        attributes:
+          - key: vertex
+          - key: normal
+          - key: uv0
+        uniforms: 
+          - builtIn: [model, view, projection, cameraLoc, pbrTexturedSurface, lights4]
+        shaders: 
+          Vertex: 
+            source: pbr/pbr.vert
+          Fragment:
+            source: pbr/pbr_simpleTextured.frag

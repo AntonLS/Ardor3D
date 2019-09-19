@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.renderer.state.record;
@@ -18,34 +18,34 @@ import com.ardor3d.renderer.DrawBufferTarget;
 
 public class RendererRecord extends StateRecord {
     private int _matrixMode = -1;
-    private int _currentElementVboId = -1, _currentVboId = -1;
+    private int _currentVaoId = -1;
     private boolean _matrixValid;
-    private boolean _vboValid;
-    private boolean _elementVboValid;
+    private boolean _vaoValid;
     private boolean _clippingTestValid;
     private boolean _clippingTestEnabled;
     private transient final ColorRGBA _tempColor = new ColorRGBA();
     private DrawBufferTarget _drawBufferTarget = null;
     private final Stack<ReadOnlyRectangle2> _clips = new Stack<ReadOnlyRectangle2>();
-    private int _normalMode = -1; // signifies disabled
     private int _enabledTextures = 0;
     private boolean _texturesValid = false;
     private int _currentTextureArraysUnit = 0;
+    private int _programId;
+    private boolean _shaderPointSize;
 
     @Override
     public void invalidate() {
         invalidateMatrix();
-        invalidateVBO();
+        invalidateVAO();
         _drawBufferTarget = null;
         _clippingTestValid = false;
         _texturesValid = false;
-        _normalMode = -1;
         _currentTextureArraysUnit = -1;
+        _programId = -1;
     }
 
     @Override
     public void validate() {
-    // ignore - validate per item or locally
+        // ignore - validate per item or locally
     }
 
     public void invalidateMatrix() {
@@ -53,10 +53,9 @@ public class RendererRecord extends StateRecord {
         _matrixMode = -1;
     }
 
-    public void invalidateVBO() {
-        _vboValid = false;
-        _elementVboValid = false;
-        _currentElementVboId = _currentVboId = -1;
+    public void invalidateVAO() {
+        _vaoValid = false;
+        _currentVaoId = -1;
     }
 
     public int getMatrixMode() {
@@ -67,44 +66,28 @@ public class RendererRecord extends StateRecord {
         _matrixMode = matrixMode;
     }
 
-    public int getCurrentElementVboId() {
-        return _currentElementVboId;
+    public int getCurrentVaoId() {
+        return _currentVaoId;
     }
 
-    public void setCurrentElementVboId(final int currentElementVboId) {
-        _currentElementVboId = currentElementVboId;
-    }
-
-    public int getCurrentVboId() {
-        return _currentVboId;
-    }
-
-    public void setCurrentVboId(final int currentVboId) {
-        _currentVboId = currentVboId;
+    public void setCurrentVaoId(final int id) {
+        _currentVaoId = id;
     }
 
     public boolean isMatrixValid() {
         return _matrixValid;
     }
 
-    public void setMatrixValid(final boolean matrixValid) {
-        _matrixValid = matrixValid;
+    public void setMatrixValid(final boolean valid) {
+        _matrixValid = valid;
     }
 
-    public boolean isVboValid() {
-        return _vboValid;
+    public boolean isVaoValid() {
+        return _vaoValid;
     }
 
-    public void setVboValid(final boolean vboValid) {
-        _vboValid = vboValid;
-    }
-
-    public boolean isElementVboValid() {
-        return _elementVboValid;
-    }
-
-    public void setElementVboValid(final boolean elementVboValid) {
-        _elementVboValid = elementVboValid;
+    public void setVaoValid(final boolean valid) {
+        _vaoValid = valid;
     }
 
     public ColorRGBA getTempColor() {
@@ -147,20 +130,12 @@ public class RendererRecord extends StateRecord {
         _enabledTextures = enabledTextures;
     }
 
-    public int getNormalMode() {
-        return _normalMode;
-    }
-
-    public void setNormalMode(final int normalMode) {
-        _normalMode = normalMode;
-    }
-
     public boolean isTexturesValid() {
         return _texturesValid;
     }
 
-    public void setTexturesValid(final boolean texturesValid) {
-        _texturesValid = texturesValid;
+    public void setTexturesValid(final boolean valid) {
+        _texturesValid = valid;
     }
 
     public int getCurrentTextureArraysUnit() {
@@ -169,5 +144,21 @@ public class RendererRecord extends StateRecord {
 
     public void setCurrentTextureArraysUnit(final int currentTextureArraysUnit) {
         _currentTextureArraysUnit = currentTextureArraysUnit;
+    }
+
+    public int getProgramId() {
+        return _programId;
+    }
+
+    public void setProgramId(final int programId) {
+        _programId = programId;
+    }
+
+    public boolean isShaderPointSize() {
+        return _shaderPointSize;
+    }
+
+    public void setShaderPointSize(final boolean shaderPointSize) {
+        _shaderPointSize = shaderPointSize;
     }
 }

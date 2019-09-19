@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.util.stat;
@@ -15,7 +15,6 @@ public class StatType implements Comparable<StatType> {
     public static final StatType STAT_FRAMES = new StatType("_frames");
 
     public static final StatType STAT_TRIANGLE_COUNT = new StatType("_triCount");
-    public static final StatType STAT_QUAD_COUNT = new StatType("_quadCount");
     public static final StatType STAT_LINE_COUNT = new StatType("_lineCount");
     public static final StatType STAT_POINT_COUNT = new StatType("_pointCount");
     public static final StatType STAT_VERTEX_COUNT = new StatType("_vertCount");

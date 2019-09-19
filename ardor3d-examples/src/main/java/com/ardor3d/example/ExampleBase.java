@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example;
@@ -13,38 +13,39 @@ package com.ardor3d.example;
 import java.awt.EventQueue;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.lwjgl.system.Configuration;
+
 import com.ardor3d.annotation.MainThread;
+import com.ardor3d.extension.ui.text.TextFactory;
 import com.ardor3d.framework.Canvas;
 import com.ardor3d.framework.CanvasRenderer;
 import com.ardor3d.framework.DisplaySettings;
 import com.ardor3d.framework.FrameHandler;
+import com.ardor3d.framework.ICanvasListener;
 import com.ardor3d.framework.NativeCanvas;
 import com.ardor3d.framework.Scene;
 import com.ardor3d.framework.Updater;
-import com.ardor3d.framework.jogl.JoglCanvasRenderer;
-import com.ardor3d.framework.jogl.JoglNewtWindow;
-import com.ardor3d.framework.lwjgl.LwjglCanvas;
-import com.ardor3d.framework.lwjgl.LwjglCanvasRenderer;
+import com.ardor3d.framework.lwjgl3.GLFWCanvas;
+import com.ardor3d.framework.lwjgl3.Lwjgl3CanvasRenderer;
 import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.image.util.awt.AWTImageLoader;
 import com.ardor3d.image.util.awt.ScreenShotImageExporter;
-import com.ardor3d.input.GrabbedState;
-import com.ardor3d.input.Key;
-import com.ardor3d.input.MouseButton;
-import com.ardor3d.input.MouseManager;
 import com.ardor3d.input.PhysicalLayer;
+import com.ardor3d.input.character.CharacterInputEvent;
 import com.ardor3d.input.control.FirstPersonControl;
-import com.ardor3d.input.jogl.JoglNewtFocusWrapper;
-import com.ardor3d.input.jogl.JoglNewtKeyboardWrapper;
-import com.ardor3d.input.jogl.JoglNewtMouseManager;
-import com.ardor3d.input.jogl.JoglNewtMouseWrapper;
-import com.ardor3d.input.logical.AnyKeyCondition;
-import com.ardor3d.input.logical.DummyControllerWrapper;
+import com.ardor3d.input.glfw.GLFWCharacterInputWrapper;
+import com.ardor3d.input.glfw.GLFWKeyboardWrapper;
+import com.ardor3d.input.glfw.GLFWMouseManager;
+import com.ardor3d.input.glfw.GLFWMouseWrapper;
+import com.ardor3d.input.keyboard.Key;
+import com.ardor3d.input.logical.AnyCharacterCondition;
 import com.ardor3d.input.logical.InputTrigger;
 import com.ardor3d.input.logical.KeyPressedCondition;
 import com.ardor3d.input.logical.LogicalLayer;
@@ -53,10 +54,9 @@ import com.ardor3d.input.logical.MouseButtonPressedCondition;
 import com.ardor3d.input.logical.MouseButtonReleasedCondition;
 import com.ardor3d.input.logical.TriggerAction;
 import com.ardor3d.input.logical.TwoInputStates;
-import com.ardor3d.input.lwjgl.LwjglControllerWrapper;
-import com.ardor3d.input.lwjgl.LwjglKeyboardWrapper;
-import com.ardor3d.input.lwjgl.LwjglMouseManager;
-import com.ardor3d.input.lwjgl.LwjglMouseWrapper;
+import com.ardor3d.input.mouse.GrabbedState;
+import com.ardor3d.input.mouse.MouseButton;
+import com.ardor3d.input.mouse.MouseManager;
 import com.ardor3d.intersection.PickData;
 import com.ardor3d.intersection.PickResults;
 import com.ardor3d.intersection.PickingUtil;
@@ -66,18 +66,19 @@ import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Ray3;
 import com.ardor3d.math.Vector2;
 import com.ardor3d.math.Vector3;
+import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.ContextCapabilities;
 import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.TextureRendererFactory;
-import com.ardor3d.renderer.jogl.JoglTextureRendererProvider;
-import com.ardor3d.renderer.lwjgl.LwjglTextureRendererProvider;
+import com.ardor3d.renderer.material.MaterialManager;
+import com.ardor3d.renderer.material.reader.YamlMaterialReader;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.LightState;
 import com.ardor3d.renderer.state.WireframeState;
 import com.ardor3d.renderer.state.ZBufferState;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.event.DirtyType;
+import com.ardor3d.ui.text.BMText;
 import com.ardor3d.util.Constants;
 import com.ardor3d.util.ContextGarbageCollector;
 import com.ardor3d.util.GameTaskQueue;
@@ -89,10 +90,8 @@ import com.ardor3d.util.resource.ResourceLocatorTool;
 import com.ardor3d.util.resource.SimpleResourceLocator;
 import com.ardor3d.util.screen.ScreenExporter;
 import com.ardor3d.util.stat.StatCollector;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 
-public abstract class ExampleBase implements Runnable, Updater, Scene {
+public abstract class ExampleBase implements Runnable, Updater, Scene, ICanvasListener {
     private static final Logger logger = Logger.getLogger(ExampleBase.class.getName());
 
     /** If true (the default) we will call System.exit on end of demo. */
@@ -108,6 +107,10 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
     protected DisplaySettings _settings;
 
     protected final Node _root = new Node();
+
+    protected final Node _orthoRoot = new Node();
+
+    protected Camera _orthoCam;
 
     protected LightState _lightState;
 
@@ -177,16 +180,10 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
 
         AWTImageLoader.registerLoader();
 
-        try {
-            SimpleResourceLocator srl = new SimpleResourceLocator(ResourceLocatorTool.getClassPathResource(
-                    ExampleBase.class, "com/ardor3d/example/media/"));
-            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_TEXTURE, srl);
-            srl = new SimpleResourceLocator(ResourceLocatorTool.getClassPathResource(ExampleBase.class,
-                    "com/ardor3d/example/media/models/"));
-            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_MODEL, srl);
-        } catch (final URISyntaxException ex) {
-            ex.printStackTrace();
-        }
+        addDefaultResourceLocators();
+
+        BMText.setDpiScaleProvider(_canvas);
+        TextFactory.INSTANCE.setDpiScaleProvider(_canvas);
 
         /**
          * Create a ZBuffer to display pixels closest to the camera above farther ones.
@@ -215,6 +212,7 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
         _root.setRenderState(_wireframeState);
 
         _root.getSceneHints().setRenderBucketType(RenderBucketType.Opaque);
+        _orthoRoot.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
 
         initExample();
 
@@ -245,6 +243,9 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
 
         /** Update controllers/render states/transforms/bounds for rootNode. */
         _root.updateGeometricState(timer.getTimePerFrame(), true);
+
+        /** Update controllers/render states/transforms/bounds for orthoRoot. */
+        _orthoRoot.updateGeometricState(timer.getTimePerFrame(), true);
     }
 
     protected void updateLogicalLayer(final ReadOnlyTimer timer) {
@@ -259,7 +260,7 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
     }
 
     @MainThread
-    public boolean renderUnto(final Renderer renderer) {
+    public boolean render(final Renderer renderer) {
         // Execute renderQueue item
         GameTaskQueueManager.getManager(_canvas.getCanvasRenderer().getRenderContext()).getQueue(GameTaskQueue.RENDER)
                 .execute(renderer);
@@ -286,7 +287,13 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
     }
 
     protected void renderExample(final Renderer renderer) {
+        _canvas.getCanvasRenderer().getCamera().apply(renderer);
         _root.onDraw(renderer);
+        renderer.renderBuckets();
+        _orthoCam.apply(renderer);
+        _orthoRoot.onDraw(renderer);
+        renderer.renderBuckets();
+        _canvas.getCanvasRenderer().getCamera().apply(renderer);
     }
 
     protected void renderDebug(final Renderer renderer) {
@@ -316,8 +323,8 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
     protected void processPicks(final PrimitivePickResults pickResults) {
         final PickData pick = pickResults.findFirstIntersectingPickData();
         if (pick != null) {
-            System.err.println("picked: " + pick.getTarget() + " at: "
-                    + pick.getIntersectionRecord().getIntersectionPoint(0));
+            System.err.println(
+                    "picked: " + pick.getTarget() + " at: " + pick.getIntersectionRecord().getIntersectionPoint(0));
         } else {
             System.err.println("picked: nothing");
         }
@@ -338,8 +345,8 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
         }
 
         // Ask for properties
-        final PropertiesGameSettings prefs = example.getAttributes(new PropertiesGameSettings(
-                "ardorSettings.properties", null));
+        final PropertiesGameSettings prefs = example
+                .getAttributes(new PropertiesGameSettings("ardorSettings.properties", null));
 
         // Convert to DisplayProperties (XXX: maybe merge these classes?)
         final DisplaySettings settings = new DisplaySettings(prefs.getWidth(), prefs.getHeight(), prefs.getDepth(),
@@ -357,31 +364,38 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
 
         example._settings = settings;
 
+        System.gc();
+        System.gc();
+
         // get our framework
         if (prefs.getRenderer().startsWith("LWJGL")) {
-            final LwjglCanvasRenderer canvasRenderer = new LwjglCanvasRenderer(example);
-            example._canvas = new LwjglCanvas(settings, canvasRenderer);
-            example._physicalLayer = new PhysicalLayer(new LwjglKeyboardWrapper(), new LwjglMouseWrapper(),
-                    new LwjglControllerWrapper(), (LwjglCanvas) example._canvas);
-            example._mouseManager = new LwjglMouseManager();
-            TextureRendererFactory.INSTANCE.setProvider(new LwjglTextureRendererProvider());
-        } else if (prefs.getRenderer().startsWith("JOGL")) {
-            final JoglCanvasRenderer canvasRenderer = new JoglCanvasRenderer(example);
-            example._canvas = new JoglNewtWindow(canvasRenderer, settings);
-            final JoglNewtWindow canvas = (JoglNewtWindow) example._canvas;
-            example._mouseManager = new JoglNewtMouseManager(canvas);
-            example._physicalLayer = new PhysicalLayer(new JoglNewtKeyboardWrapper(canvas), new JoglNewtMouseWrapper(
-                    canvas, example._mouseManager), DummyControllerWrapper.INSTANCE, new JoglNewtFocusWrapper(canvas));
-            TextureRendererFactory.INSTANCE.setProvider(new JoglTextureRendererProvider());
+            Configuration.DEBUG.set(true);
+            final Lwjgl3CanvasRenderer canvasRenderer = new Lwjgl3CanvasRenderer(example);
+            final GLFWCanvas canvas = new GLFWCanvas(settings, canvasRenderer);
+            example._canvas = canvas;
+            example._physicalLayer = new PhysicalLayer.Builder()//
+                    .with(new GLFWKeyboardWrapper(canvas)) //
+                    .with(new GLFWCharacterInputWrapper(canvas)) //
+                    .with(new GLFWMouseWrapper(canvas))//
+                    .build();
+            example._mouseManager = new GLFWMouseManager(canvas);
+            example._canvas.setMouseManager(example._mouseManager);
         }
 
+        // setup our ortho camera
+        example._orthoCam = Camera.newOrthoCamera(example._canvas);
+
+        // register our canvas/physical layer
         example._logicalLayer.registerInput(example._canvas, example._physicalLayer);
 
-        // Register our example as an updater.
+        // register our example as an updater.
         example._frameHandler.addUpdater(example);
 
         // register our native canvas
         example._frameHandler.addCanvas(example._canvas);
+
+        // add resize handler
+        example._canvas.addListener(example);
 
         new Thread(example).start();
     }
@@ -453,8 +467,8 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
 
         _controlHandle = FirstPersonControl.setupTriggers(_logicalLayer, _worldUp, true);
 
-        _logicalLayer.registerTrigger(new InputTrigger(new MouseButtonClickedCondition(MouseButton.RIGHT),
-                new TriggerAction() {
+        _logicalLayer.registerTrigger(
+                new InputTrigger(new MouseButtonClickedCondition(MouseButton.RIGHT), new TriggerAction() {
                     public void perform(final Canvas source, final TwoInputStates inputStates, final double tpf) {
 
                         final Vector2 pos = Vector2.fetchTempInstance().set(
@@ -519,8 +533,8 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
             }
         }));
 
-        final Predicate<TwoInputStates> clickLeftOrRight = Predicates.or(new MouseButtonClickedCondition(
-                MouseButton.LEFT), new MouseButtonClickedCondition(MouseButton.RIGHT));
+        final Predicate<TwoInputStates> clickLeftOrRight = new MouseButtonClickedCondition(MouseButton.LEFT)
+                .or(new MouseButtonClickedCondition(MouseButton.RIGHT));
 
         _logicalLayer.registerTrigger(new InputTrigger(clickLeftOrRight, new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputStates, final double tpf) {
@@ -528,16 +542,16 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
             }
         }));
 
-        _logicalLayer.registerTrigger(new InputTrigger(new MouseButtonPressedCondition(MouseButton.LEFT),
-                new TriggerAction() {
+        _logicalLayer.registerTrigger(
+                new InputTrigger(new MouseButtonPressedCondition(MouseButton.LEFT), new TriggerAction() {
                     public void perform(final Canvas source, final TwoInputStates inputState, final double tpf) {
                         if (_mouseManager.isSetGrabbedSupported()) {
                             _mouseManager.setGrabbed(GrabbedState.GRABBED);
                         }
                     }
                 }));
-        _logicalLayer.registerTrigger(new InputTrigger(new MouseButtonReleasedCondition(MouseButton.LEFT),
-                new TriggerAction() {
+        _logicalLayer.registerTrigger(
+                new InputTrigger(new MouseButtonReleasedCondition(MouseButton.LEFT), new TriggerAction() {
                     public void perform(final Canvas source, final TwoInputStates inputState, final double tpf) {
                         if (_mouseManager.isSetGrabbedSupported()) {
                             _mouseManager.setGrabbed(GrabbedState.NOT_GRABBED);
@@ -545,12 +559,48 @@ public abstract class ExampleBase implements Runnable, Updater, Scene {
                     }
                 }));
 
-        _logicalLayer.registerTrigger(new InputTrigger(new AnyKeyCondition(), new TriggerAction() {
+        _logicalLayer.registerTrigger(new InputTrigger(new AnyCharacterCondition(), new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputState, final double tpf) {
-                System.out.println("Key character pressed: "
-                        + inputState.getCurrent().getKeyboardState().getKeyEvent().getKeyChar());
+                final List<CharacterInputEvent> events = inputState.getCurrent().getCharacterState().getEvents();
+                for (final CharacterInputEvent e : events) {
+                    System.out.println("Character entered: " + e.getValue());
+                }
             }
         }));
 
+    }
+
+    @Override
+    public void onResize(final int newWidth, final int newHeight) {
+        final Camera camera = _canvas.getCanvasRenderer().getCamera();
+        if (camera == null) {
+            return;
+        }
+
+        camera.resize(newWidth, newHeight);
+        camera.setFrustumPerspective(camera.getFovY(), (float) newWidth / (float) newHeight, camera.getFrustumNear(),
+                camera.getFrustumFar());
+    }
+
+    public static void addDefaultResourceLocators() {
+        try {
+            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_TEXTURE, new SimpleResourceLocator(
+                    ResourceLocatorTool.getClassPathResource(ExampleBase.class, "com/ardor3d/example/media/")));
+            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_MODEL, new SimpleResourceLocator(
+                    ResourceLocatorTool.getClassPathResource(ExampleBase.class, "com/ardor3d/example/media/models/")));
+            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_MATERIAL, new SimpleResourceLocator(
+                    ResourceLocatorTool.getClassPathResource(MaterialManager.class, "com/ardor3d/renderer/material")));
+            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_MATERIAL,
+                    new SimpleResourceLocator(ResourceLocatorTool.getClassPathResource(ExampleBase.class,
+                            "com/ardor3d/example/media/materials/")));
+            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_SHADER, new SimpleResourceLocator(
+                    ResourceLocatorTool.getClassPathResource(MaterialManager.class, "com/ardor3d/renderer/shader")));
+            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_SHADER, new SimpleResourceLocator(
+                    ResourceLocatorTool.getClassPathResource(ExampleBase.class, "com/ardor3d/example/media/shaders/")));
+            MaterialManager.INSTANCE.setDefaultMaterial(YamlMaterialReader
+                    .load(ResourceLocatorTool.locateResource(ResourceLocatorTool.TYPE_MATERIAL, "basic_white.yaml")));
+        } catch (final URISyntaxException ex) {
+            ex.printStackTrace();
+        }
     }
 }

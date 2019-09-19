@@ -1,22 +1,22 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.layout;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ardor3d.extension.ui.UIComponent;
 import com.ardor3d.extension.ui.UIContainer;
 import com.ardor3d.math.Rectangle2;
 import com.ardor3d.scenegraph.Spatial;
-import com.google.common.collect.Lists;
 
 /**
  * This layout places components in either a horizontal or vertical row, ordered as they are placed in their container.
@@ -29,10 +29,11 @@ public class RowLayout extends UILayout {
     private final boolean _horizontal;
     private final boolean _expandsHorizontally;
     private final boolean _expandsVertically;
+    private int _spacing = 0;
 
     /**
      * Construct a new RowLayout
-     * 
+     *
      * @param horizontal
      *            true if we should lay out horizontally, false if vertically
      */
@@ -42,7 +43,7 @@ public class RowLayout extends UILayout {
 
     /**
      * Construct a new RowLayout
-     * 
+     *
      * @param horizontal
      *            true if we should lay out horizontally, false if vertically
      * @param expandsHorizontally
@@ -74,7 +75,7 @@ public class RowLayout extends UILayout {
     }
 
     /**
-     * 
+     *
      * @return true (the default) if vertical free space in the container should be divided up among the child
      *         components.
      */
@@ -94,8 +95,8 @@ public class RowLayout extends UILayout {
         final Rectangle2 storeB = Rectangle2.fetchTempInstance();
 
         // Grab a list of components, squeezing them down to their min size on the flow axis
-        List<UIComponent> comps = Lists.newArrayList();
-        List<UIComponent> compsBack = Lists.newArrayList();
+        List<UIComponent> comps = new ArrayList<>();
+        List<UIComponent> compsBack = new ArrayList<>();
         for (int i = 0; i < content.size(); i++) {
             final Spatial spat = content.get(i);
             if (spat instanceof UIComponent) {
@@ -115,7 +116,8 @@ public class RowLayout extends UILayout {
         if (!comps.isEmpty()) {
 
             // Determine how much space we feel we need.
-            final int reqSpace = _horizontal ? getSumOfAllWidths(content) : getSumOfAllHeights(content);
+            final int reqSpace = _spacing * (comps.size() - 1)
+                    + (_horizontal ? getSumOfAllWidths(content) : getSumOfAllHeights(content));
 
             // How much extra space do we have?
             int freeSpace = (_horizontal ? container.getContentWidth() : container.getContentHeight()) - reqSpace;
@@ -179,13 +181,13 @@ public class RowLayout extends UILayout {
                 final Rectangle2 rect = comp.getRelativeComponentBounds(storeA);
 
                 if (_horizontal) {
-                    comp.setLocalXY(x - rect.getX(), Math.max(container.getContentHeight() / 2 - rect.getHeight() / 2
-                            - rect.getY(), 0));
-                    x += rect.getWidth();
+                    comp.setLocalXY(x - rect.getX(),
+                            Math.max(container.getContentHeight() / 2 - rect.getHeight() / 2 - rect.getY(), 0));
+                    x += rect.getWidth() + _spacing;
                 } else {
                     comp.setLocalXY(Math.max(container.getContentWidth() / 2 - rect.getWidth() / 2 - rect.getX(), 0), y
                             - rect.getY());
-                    y += rect.getHeight();
+                    y += rect.getHeight() + _spacing;
                 }
             }
         }
@@ -203,6 +205,7 @@ public class RowLayout extends UILayout {
 
             // compute the min width and height of the container
             final Rectangle2 store = new Rectangle2();
+            int spaces = -1;
             for (final Spatial s : content) {
                 if (!(s instanceof UIComponent)) {
                     continue;
@@ -220,9 +223,18 @@ public class RowLayout extends UILayout {
                     }
                     minH += rect.getHeight();
                 }
+                spaces++;
+            }
+
+            if (spaces > 0) {
+                if (_horizontal) {
+                    minW += _spacing * spaces;
+                } else {
+                    minH += _spacing * spaces;
+                }
             }
         }
-        container.setMinimumContentSize(minW, minH);
+        container.setLayoutMinimumContentSize(minW, minH);
     }
 
     private int getSumOfAllHeights(final List<Spatial> content) {
@@ -251,5 +263,13 @@ public class RowLayout extends UILayout {
             }
         }
         return sum;
+    }
+
+    public int getSpacing() {
+        return _spacing;
+    }
+
+    public void setSpacing(final int spacing) {
+        _spacing = spacing;
     }
 }

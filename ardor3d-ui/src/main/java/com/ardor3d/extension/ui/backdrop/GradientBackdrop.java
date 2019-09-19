@@ -1,16 +1,17 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.backdrop;
 
 import com.ardor3d.extension.ui.UIComponent;
+import com.ardor3d.extension.ui.util.Insets;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Transform;
 import com.ardor3d.math.Vector3;
@@ -20,7 +21,9 @@ import com.ardor3d.renderer.Renderer;
 import com.ardor3d.renderer.state.BlendState;
 import com.ardor3d.renderer.state.BlendState.DestinationFunction;
 import com.ardor3d.renderer.state.BlendState.SourceFunction;
+import com.ardor3d.scenegraph.AbstractBufferData.VBOAccessMode;
 import com.ardor3d.scenegraph.Mesh;
+import com.ardor3d.scenegraph.MeshData;
 import com.ardor3d.util.geom.BufferUtils;
 
 /**
@@ -44,7 +47,7 @@ public class GradientBackdrop extends UIBackdrop {
 
     /**
      * Construct this back drop, using the given corner colors.
-     * 
+     *
      * @param topLeft
      * @param topRight
      * @param bottomLeft
@@ -96,8 +99,9 @@ public class GradientBackdrop extends UIBackdrop {
         final float pAlpha = UIComponent.getCurrentOpacity();
 
         final Vector3 v = Vector3.fetchTempInstance();
-        v.set(comp.getMargin().getLeft() + comp.getBorder().getLeft(), comp.getMargin().getBottom()
-                + comp.getBorder().getBottom(), 0);
+        final Insets margin = comp.getMargin() != null ? comp.getMargin() : Insets.EMPTY;
+        final Insets border = comp.getBorder() != null ? comp.getBorder() : Insets.EMPTY;
+        v.set(margin.getLeft() + border.getLeft(), margin.getBottom() + border.getBottom(), 0);
 
         final Transform t = Transform.fetchTempInstance();
         t.set(comp.getWorldTransform());
@@ -137,20 +141,28 @@ public class GradientBackdrop extends UIBackdrop {
         GradientBackdrop._cVals[14] = _topLeft.getBlue();
         GradientBackdrop._cVals[15] = _topLeft.getAlpha() * pAlpha;
 
-        GradientBackdrop._mesh.getMeshData().getVertexBuffer().rewind();
-        GradientBackdrop._mesh.getMeshData().getVertexBuffer().put(GradientBackdrop._vals);
+        final MeshData meshData = GradientBackdrop._mesh.getMeshData();
+        meshData.getVertexBuffer().rewind();
+        meshData.getVertexBuffer().put(GradientBackdrop._vals);
 
-        GradientBackdrop._mesh.getMeshData().getColorBuffer().rewind();
-        GradientBackdrop._mesh.getMeshData().getColorBuffer().put(GradientBackdrop._cVals);
+        meshData.getColorBuffer().rewind();
+        meshData.getColorBuffer().put(GradientBackdrop._cVals);
 
+        meshData.markBufferDirty(MeshData.KEY_VertexCoords);
+        meshData.markBufferDirty(MeshData.KEY_ColorCoords);
         GradientBackdrop._mesh.render(renderer);
     }
 
     private static Mesh createMesh() {
         final Mesh mesh = new Mesh();
-        mesh.getMeshData().setVertexBuffer(BufferUtils.createVector3Buffer(4));
-        mesh.getMeshData().setColorBuffer(BufferUtils.createColorBuffer(4));
-        mesh.getMeshData().setIndexMode(IndexMode.TriangleFan);
+        mesh.setRenderMaterial("ui/untextured/vertex_color.yaml");
+
+        final MeshData meshData = mesh.getMeshData();
+        meshData.setVertexBuffer(BufferUtils.createVector3Buffer(4));
+        meshData.getVertexCoords().setVboAccessMode(VBOAccessMode.DynamicDraw);
+        meshData.setColorBuffer(BufferUtils.createColorBuffer(4));
+        meshData.getColorCoords().setVboAccessMode(VBOAccessMode.DynamicDraw);
+        meshData.setIndexMode(IndexMode.TriangleFan);
 
         final BlendState blend = new BlendState();
         blend.setBlendEnabled(true);

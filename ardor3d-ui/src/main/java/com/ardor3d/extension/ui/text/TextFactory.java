@@ -1,18 +1,20 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.text;
 
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -25,6 +27,7 @@ import com.ardor3d.extension.ui.text.font.FontProvider;
 import com.ardor3d.extension.ui.text.font.UIFont;
 import com.ardor3d.extension.ui.text.parser.ForumLikeMarkupParser;
 import com.ardor3d.extension.ui.text.parser.StyleParser;
+import com.ardor3d.framework.IDpiScaleProvider;
 import com.ardor3d.image.Texture2D;
 import com.ardor3d.math.type.ReadOnlyColorRGBA;
 import com.ardor3d.renderer.state.BlendState;
@@ -32,13 +35,12 @@ import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.scenegraph.FloatBufferData;
 import com.ardor3d.scenegraph.MeshData;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 
 public enum TextFactory {
     INSTANCE;
 
+    private IDpiScaleProvider _scaleProvider;
     private FontProvider _fontProvider;
     private StyleParser _styleParser;
     private final static float[] WHITE = new float[] { 1, 1, 1, 1 };
@@ -46,13 +48,31 @@ public enum TextFactory {
     TextFactory() {
         final BMFontProvider fontProvider = new BMFontProvider();
         fontProvider.addFont("com/ardor3d/extension/ui/font/arial-12-regular", "Arial", 12, false, false);
-        fontProvider.addFont("com/ardor3d/extension/ui/font/arial-16-bold-regular", "Arial", 16, true, false);
+        fontProvider.addFont("com/ardor3d/extension/ui/font/arial-16-bold", "Arial", 16, true, false);
         fontProvider.addFont("com/ardor3d/extension/ui/font/arial-18-regular", "Arial", 18, false, false);
         fontProvider.addFont("com/ardor3d/extension/ui/font/arial-18-bold", "Arial", 18, true, false);
         fontProvider.addFont("com/ardor3d/extension/ui/font/arial-18-bold-italic", "Arial", 18, true, true);
         fontProvider.addFont("com/ardor3d/extension/ui/font/arial-24-bold", "Arial", 24, false, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSans-14-bold-regular", "DroidSans", 14, true, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSans-16-bold-regular", "DroidSans", 16, true, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSans-16-medium-regular", "DroidSans", 16, false, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSans-20-bold-regular", "DroidSans", 20, true, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSans-26-bold-regular", "DroidSans", 26, true, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSans-40-bold-regular", "DroidSans", 40, true, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSansMono-15-bold-regular", "DroidSansMono", 15, true, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSansMono-20-bold-regular", "DroidSansMono", 20, true, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSansMono-26-bold-regular", "DroidSansMono", 26, true, false);
+        fontProvider.addFont("com/ardor3d/ui/text/DroidSansMono-40-bold-regular", "DroidSansMono", 40, true, false);
         setFontProvider(fontProvider);
         setStyleParser(new ForumLikeMarkupParser());
+    }
+
+    public void setDpiScaleProvider(final IDpiScaleProvider provider) {
+        _scaleProvider = provider;
+    }
+
+    public IDpiScaleProvider getDpiScaleProvider() {
+        return _scaleProvider;
     }
 
     public void setFontProvider(final FontProvider provider) {
@@ -71,46 +91,52 @@ public enum TextFactory {
         return _styleParser;
     }
 
-    public RenderedText generateText(final String text, final boolean styled, final Map<String, Object> defaultStyles,
-            final RenderedText store, final int maxWidth) {
+    // FIXME: Should reuse our buffers whenever possible! Particularly now that we are VBO only.
+    public RenderedText generateText(final String rawText, final boolean styled,
+            final Map<String, Object> defaultStyles, final RenderedText store, final int maxWidth) {
         RenderedText rVal = store;
+
+        // Hold onto these in case they get switched out by another thread during generation.
+        final FontProvider provider = _fontProvider;
+        final StyleParser parser = _styleParser;
+
         if (rVal == null) {
             rVal = new RenderedText();
         } else {
             rVal.detachAllChildren();
         }
 
+        rVal.setRawText(rawText);
         rVal.setStyled(styled);
 
         // note: spans must be in order by start index
-        final LinkedList<StyleSpan> spans = Lists.newLinkedList();
-        final String plainText;
-        if (styled && _styleParser != null) {
+        final LinkedList<StyleSpan> spans = new LinkedList<>();
+        final String visibleText;
+        if (styled && parser != null) {
             // parse text for style spans
-            final List<StyleSpan> styleStore = Lists.newArrayList();
-            plainText = _styleParser.parseStyleSpans(text, styleStore);
+            final List<StyleSpan> styleStore = new ArrayList<>();
+            visibleText = parser.parseStyleSpans(rawText, styleStore);
             Collections.sort(styleStore);
             if (!styleStore.isEmpty()) {
                 spans.addAll(styleStore);
             }
         } else {
-            plainText = text;
+            visibleText = rawText;
         }
 
+        rVal.setVisibleText(visibleText);
         rVal.setParsedStyleSpans(spans);
 
         // push defaults onto head of list
         for (final String style : defaultStyles.keySet()) {
-            spans.addFirst(new StyleSpan(style, defaultStyles.get(style), 0, plainText.length()));
+            spans.addFirst(new StyleSpan(style, defaultStyles.get(style), 0, visibleText.length()));
         }
-
-        rVal.setPlainText(plainText);
 
         final RenderedTextData textData = rVal.getData();
         textData.reset();
 
         char prevChar = 0, c = 0;
-        final List<StyleSpan> currentStyles = Lists.newLinkedList();
+        final List<StyleSpan> currentStyles = new LinkedList<>();
         // indexed by character offset
         final List<CharacterDescriptor> descs = textData._characters;
         final List<Integer> descXStarts = textData._xStarts;
@@ -123,9 +149,9 @@ public enum TextFactory {
         int maxLineHeight = 0, xOffset = 0, maxSizeHeight = 0;
         UIFont prevFont = null;
         double scale = 1, prevScale = 0;
-        final Map<String, Object> stylesMap = Maps.newHashMap();
+        final Map<String, Object> stylesMap = new HashMap<>();
 
-        final char[] chars = plainText.toCharArray();
+        final char[] chars = visibleText.toCharArray();
         for (int i = 0; i < chars.length; i++) {
             c = chars[i];
             // update our list - remove spans we've passed by
@@ -157,7 +183,7 @@ public enum TextFactory {
 
             // find the UIFont related to the given font family & size & styles
             final AtomicReference<Double> scaleRef = new AtomicReference<Double>();
-            final UIFont font = _fontProvider.getClosestMatchingFont(stylesMap, scaleRef);
+            final UIFont font = provider.getClosestMatchingFont(stylesMap, _scaleProvider, scaleRef);
             if (font == null) {
                 return rVal;
             }
@@ -166,17 +192,21 @@ public enum TextFactory {
 
             // check for new line
             if (c == '\n') {
+                descs.add(CharacterDescriptor.CR);
+                descXStarts.add(xOffset);
+
                 // add current index to lineEnds
                 lineEnds.add(descs.size() - 1);
 
                 // check max height is valid
                 if (maxLineHeight == 0) {
-                    maxLineHeight = (int) Math.round(scale * font.getFontHeight());
+                    maxLineHeight = (int) Math.round(scale * font.getFontSize());
                 }
 
                 // add current max height to heights
                 lineHeights.add(maxLineHeight);
                 maxSizeHeight += maxLineHeight;
+                fontHeights.add(maxLineHeight);
 
                 // reset tracking vars
                 maxLineHeight = 0;
@@ -229,14 +259,14 @@ public enum TextFactory {
             }
 
             // check against max line height
-            maxLineHeight = Math.max((int) Math.round(scale * font.getFontHeight()), maxLineHeight);
+            maxLineHeight = Math.max((int) Math.round(scale * font.getFontSize()), maxLineHeight);
 
             // add a pointer to it for the associated texture
             descIndices.put(font.getFontTexture(), descs.size() - 1);
 
             // store our xOffset and line height
             descXStarts.add(xOffset);
-            fontHeights.add((int) Math.round(scale * font.getFontHeight()));
+            fontHeights.add((int) Math.round(scale * font.getFontSize()));
 
             // move forward for next char
             xOffset += (int) Math.round(scale * desc.getXAdvance());
@@ -266,6 +296,7 @@ public enum TextFactory {
             inverseTextureWidth = 1f / tex.getImage().getWidth();
 
             final TextMesh tMesh = new TextMesh();
+            tMesh.setRenderMaterial("ui/textured/vertex_color.yaml");
 
             // apply render states
             applyStates(tMesh, tex);

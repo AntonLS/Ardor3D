@@ -1,22 +1,22 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.animation.skeletal.clip;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.ardor3d.extension.animation.skeletal.AnimationListener;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * Maintains state information about an instance of a specific animation clip, such as time scaling applied, active
@@ -40,7 +40,7 @@ public class AnimationClipInstance {
     private double _startTime = 0.0;
 
     /** Map of channel name -> state tracking objects. */
-    private final Map<String, Object> _clipStateObjects = Maps.newHashMap();
+    private final Map<String, Object> _clipStateObjects = new HashMap<>();
 
     /** List of callbacks for animation events. */
     private List<AnimationListener> animationListeners = null;
@@ -53,7 +53,7 @@ public class AnimationClipInstance {
      */
     public void addAnimationListener(final AnimationListener animationListener) {
         if (animationListeners == null) {
-            animationListeners = Lists.newArrayList();
+            animationListeners = new ArrayList<>();
         }
         animationListeners.add(animationListener);
     }

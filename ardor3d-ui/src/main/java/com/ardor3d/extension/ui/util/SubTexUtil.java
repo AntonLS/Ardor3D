@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.util;
@@ -22,8 +22,10 @@ import com.ardor3d.renderer.state.BlendState;
 import com.ardor3d.renderer.state.BlendState.DestinationFunction;
 import com.ardor3d.renderer.state.BlendState.SourceFunction;
 import com.ardor3d.renderer.state.TextureState;
+import com.ardor3d.scenegraph.AbstractBufferData.VBOAccessMode;
 import com.ardor3d.scenegraph.FloatBufferData;
 import com.ardor3d.scenegraph.Mesh;
+import com.ardor3d.scenegraph.MeshData;
 import com.ardor3d.util.geom.BufferUtils;
 
 /**
@@ -39,7 +41,7 @@ public class SubTexUtil {
 
     /**
      * Draw the given SubTex, as-is, to the screen at the given location.
-     * 
+     *
      * @param renderer
      *            the renderer to use
      * @param subTex
@@ -56,7 +58,7 @@ public class SubTexUtil {
     /**
      * Draw the given SubTex to the screen at the given location. Use the given width and height instead of those
      * supplied in the SubTex.
-     * 
+     *
      * @param renderer
      *            the renderer to use
      * @param subTex
@@ -80,7 +82,7 @@ public class SubTexUtil {
     /**
      * Draw the given SubTex to the screen at the given location. Use the given width and height instead of those
      * supplied in the SubTex. Does not flip vertically.
-     * 
+     *
      * @param renderer
      *            the renderer to use
      * @param subTex
@@ -105,7 +107,7 @@ public class SubTexUtil {
     /**
      * Draw the given SubTex to the screen at the given location. Use the given width and height instead of those
      * supplied in the SubTex. Does not flip vertically.
-     * 
+     *
      * @param renderer
      *            the renderer to use
      * @param subTex
@@ -131,7 +133,7 @@ public class SubTexUtil {
     /**
      * Draw the given SubTex to the screen at the given location. Use the given width and height instead of those
      * supplied in the SubTex.
-     * 
+     *
      * @param renderer
      *            the renderer to use
      * @param subTex
@@ -154,7 +156,7 @@ public class SubTexUtil {
     /**
      * Draw the given SubTex, optionally inverted on the Y axis, to the screen at the given location. Use the given
      * width and height instead of those supplied in the SubTex.
-     * 
+     *
      * @param renderer
      *            the renderer to use
      * @param subTex
@@ -180,7 +182,7 @@ public class SubTexUtil {
     /**
      * Draw the given SubTex, optionally inverted on the Y axis, to the screen at the given location. Use the given
      * width and height instead of those supplied in the SubTex.
-     * 
+     *
      * @param renderer
      *            the renderer to use
      * @param subTex
@@ -277,22 +279,26 @@ public class SubTexUtil {
         Vector3.releaseTempInstance(v);
         SubTexUtil._mesh.setWorldTransform(SubTexUtil._helperT);
 
+        final MeshData meshData = SubTexUtil._mesh.getMeshData();
+
         // set our vertices into the mesh
-        SubTexUtil._mesh.getMeshData().getVertexBuffer().rewind();
-        SubTexUtil._mesh.getMeshData().getVertexBuffer().put(SubTexUtil._vals);
+        meshData.getVertexBuffer().rewind();
+        meshData.getVertexBuffer().put(SubTexUtil._vals);
 
         // set our texture coords into the mesh
-        SubTexUtil._mesh.getMeshData().getTextureBuffer(0).rewind();
-        SubTexUtil._mesh.getMeshData().getTextureBuffer(0).put(SubTexUtil._texc);
+        meshData.getTextureBuffer(0).rewind();
+        meshData.getTextureBuffer(0).put(SubTexUtil._texc);
 
         // draw mesh
+        meshData.markBufferDirty(MeshData.KEY_VertexCoords);
+        meshData.markBufferDirty(MeshData.KEY_TextureCoords0);
         SubTexUtil._mesh.render(renderer);
     }
 
     /**
      * Draw the given TransformedSubTex, optionally inverted on the Y axis, to the screen at the given location. Use the
      * given width and height instead of those supplied in the TransformedSubTex.
-     * 
+     *
      * @param renderer
      *            the renderer to use
      * @param subTex
@@ -387,24 +393,31 @@ public class SubTexUtil {
         SubTexUtil._helperT.translate(v);
         Vector3.releaseTempInstance(v);
         SubTexUtil._mesh.setWorldTransform(SubTexUtil._helperT);
+        final MeshData meshData = SubTexUtil._mesh.getMeshData();
 
         // set our vertices into the mesh
-        SubTexUtil._mesh.getMeshData().getVertexBuffer().rewind();
-        SubTexUtil._mesh.getMeshData().getVertexBuffer().put(SubTexUtil._vals);
+        meshData.getVertexBuffer().rewind();
+        meshData.getVertexBuffer().put(SubTexUtil._vals);
 
         // set our texture coords into the mesh
-        SubTexUtil._mesh.getMeshData().getTextureBuffer(0).rewind();
-        SubTexUtil._mesh.getMeshData().getTextureBuffer(0).put(SubTexUtil._texc);
+        meshData.getTextureBuffer(0).rewind();
+        meshData.getTextureBuffer(0).put(SubTexUtil._texc);
 
         // draw mesh
+        meshData.markBufferDirty(MeshData.KEY_VertexCoords);
+        meshData.markBufferDirty(MeshData.KEY_TextureCoords0);
         SubTexUtil._mesh.render(renderer);
     }
 
     private static Mesh createMesh() {
         final Mesh mesh = new Mesh();
-        mesh.getMeshData().setVertexCoords(new FloatBufferData(BufferUtils.createVector2Buffer(4), 2));
-        mesh.getMeshData().setTextureBuffer(BufferUtils.createVector2Buffer(4), 0);
-        mesh.getMeshData().setIndexMode(IndexMode.TriangleFan);
+        mesh.setRenderMaterial("ui/textured/default_color.yaml");
+
+        final MeshData meshData = mesh.getMeshData();
+        meshData.setVertexCoords(new FloatBufferData(BufferUtils.createVector2Buffer(4), 2));
+        meshData.setTextureBuffer(BufferUtils.createVector2Buffer(4), 0);
+        meshData.setIndexMode(IndexMode.TriangleFan);
+        meshData.getVertexCoords().setVboAccessMode(VBOAccessMode.DynamicDraw);
 
         mesh.setRenderState(SubTexUtil._tstate);
 
@@ -413,7 +426,6 @@ public class SubTexUtil {
         blend.setSourceFunction(SourceFunction.SourceAlpha);
         blend.setDestinationFunction(DestinationFunction.OneMinusSourceAlpha);
         mesh.setRenderState(blend);
-
         mesh.updateWorldRenderStates(false);
 
         return mesh;

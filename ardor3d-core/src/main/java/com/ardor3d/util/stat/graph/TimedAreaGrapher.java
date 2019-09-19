@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.util.stat.graph;
@@ -19,7 +19,6 @@ import java.util.List;
 import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.math.type.ReadOnlyVector3;
-import com.ardor3d.renderer.ContextCapabilities;
 import com.ardor3d.renderer.IndexMode;
 import com.ardor3d.renderer.Renderer;
 import com.ardor3d.renderer.queue.RenderBucketType;
@@ -57,8 +56,8 @@ public class TimedAreaGrapher extends AbstractStatGrapher implements TableLinkab
 
     private BlendState _defBlendState = null;
 
-    public TimedAreaGrapher(final int width, final int height, final Renderer renderer, final ContextCapabilities caps) {
-        super(width, height, renderer, caps);
+    public TimedAreaGrapher(final int width, final int height, final Renderer renderer) {
+        super(width, height, renderer);
 
         // Setup our static horizontal graph lines
         createHLines();
@@ -183,7 +182,7 @@ public class TimedAreaGrapher extends AbstractStatGrapher implements TableLinkab
         _graphRoot.updateGeometricState(0, true);
 
         // - Now, draw to texture via a TextureRenderer
-        _textureRenderer.render(_graphRoot, _texture, Renderer.BUFFER_COLOR_AND_DEPTH);
+        _textureRenderer.renderSpatial(_graphRoot, _texture, Renderer.BUFFER_COLOR_AND_DEPTH);
 
         // Turn stat collection back on.
         StatCollector.resume();
@@ -225,14 +224,11 @@ public class TimedAreaGrapher extends AbstractStatGrapher implements TableLinkab
 
         _horizontals = new Line("horiz", verts, null, null, null);
         _horizontals.getMeshData().setIndexMode(IndexMode.Lines);
-        _horizontals.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        _horizontals.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
 
-        _horizontals.setDefaultColor(getColorConfig(TimedAreaGrapher.Horizontal, ConfigKeys.Color.name(),
-                new ColorRGBA(ColorRGBA.BLUE)));
+        _horizontals.setDefaultColor(
+                getColorConfig(TimedAreaGrapher.Horizontal, ConfigKeys.Color.name(), new ColorRGBA(ColorRGBA.BLUE)));
         _horizontals.setLineWidth(getIntConfig(TimedAreaGrapher.Horizontal, ConfigKeys.Width.name(), 1));
-        _horizontals.setStipplePattern(getShortConfig(TimedAreaGrapher.Horizontal, ConfigKeys.Stipple.name(),
-                (short) 0xFF00));
-        _horizontals.setAntialiased(getBooleanConfig(TimedAreaGrapher.Horizontal, ConfigKeys.Antialias.name(), true));
     }
 
     // - Setup enough vertical bars to have one at every (10 X samplerate)
@@ -251,14 +247,11 @@ public class TimedAreaGrapher extends AbstractStatGrapher implements TableLinkab
 
         _verticals = new Line("vert", verts, null, null, null);
         _verticals.getMeshData().setIndexMode(IndexMode.Lines);
-        _verticals.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        _verticals.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
 
-        _verticals.setDefaultColor(getColorConfig(TimedAreaGrapher.Vertical, ConfigKeys.Color.name(), new ColorRGBA(
-                ColorRGBA.RED)));
+        _verticals.setDefaultColor(
+                getColorConfig(TimedAreaGrapher.Vertical, ConfigKeys.Color.name(), new ColorRGBA(ColorRGBA.RED)));
         _verticals.setLineWidth(getIntConfig(TimedAreaGrapher.Vertical, ConfigKeys.Width.name(), 1));
-        _verticals.setStipplePattern(getShortConfig(TimedAreaGrapher.Vertical, ConfigKeys.Stipple.name(),
-                (short) 0xFF00));
-        _verticals.setAntialiased(getBooleanConfig(TimedAreaGrapher.Vertical, ConfigKeys.Antialias.name(), true));
     }
 
     class AreaEntry {
@@ -272,7 +265,7 @@ public class TimedAreaGrapher extends AbstractStatGrapher implements TableLinkab
 
             area = new Mesh("a");
             area.getMeshData().setVertexBuffer(BufferUtils.createVector3Buffer(maxSamples * 2));
-            area.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+            area.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
             area.getMeshData().setIndexMode(IndexMode.LineStrip);
 
             area.setDefaultColor(getColorConfig(type, ConfigKeys.Color.name(), new ColorRGBA(ColorRGBA.LIGHT_GRAY)));
@@ -285,19 +278,17 @@ public class TimedAreaGrapher extends AbstractStatGrapher implements TableLinkab
     public Line updateLineKey(final StatType type, Line lineKey) {
         if (lineKey == null) {
             lineKey = new Line("lk", BufferUtils.createVector3Buffer(2), null, null, null);
-            final FloatBuffer fb = BufferUtils.createFloatBuffer(new Vector3[] { new Vector3(0, 0, 0),
-                    new Vector3(30, 0, 0) });
+            final FloatBuffer fb = BufferUtils
+                    .createFloatBuffer(new Vector3[] { new Vector3(0, 0, 0), new Vector3(30, 0, 0) });
             fb.rewind();
             lineKey.getMeshData().setVertexBuffer(fb);
         }
 
-        lineKey.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        lineKey.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
         lineKey.getMeshData().setIndexMode(IndexMode.LineLoop);
 
         lineKey.setDefaultColor(getColorConfig(type, ConfigKeys.Color.name(), new ColorRGBA(ColorRGBA.LIGHT_GRAY)));
         lineKey.setLineWidth(getIntConfig(type, ConfigKeys.Width.name(), 3));
-        lineKey.setStipplePattern(getShortConfig(type, ConfigKeys.Stipple.name(), (short) 0xFFFF));
-        lineKey.setAntialiased(getBooleanConfig(type, ConfigKeys.Antialias.name(), true));
         if (!getBooleanConfig(type, ConfigKeys.ShowAreas.name(), true)) {
             lineKey.getSceneHints().setCullHint(CullHint.Always);
         }

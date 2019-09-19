@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.image.util.awt;
@@ -13,11 +13,11 @@ package com.ardor3d.image.util.awt;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ardor3d.image.Image;
 import com.ardor3d.image.PixelDataType;
-import com.google.common.collect.Lists;
 
 /**
  * Utility methods for converting Ardor3D Images to AWT BufferedImages.
@@ -63,7 +63,7 @@ public abstract class AWTImageUtil {
         final int width = input.getWidth(), height = input.getHeight();
 
         // create our return list
-        final List<BufferedImage> rVal = Lists.newArrayList();
+        final List<BufferedImage> rVal = new ArrayList<>();
 
         // Calculate our modulation or "tint" values per channel
         final double tRed = tint != null ? tint.getRed() / 255. : 1.0;

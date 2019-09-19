@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
@@ -36,11 +36,13 @@ public class UIFrameBar extends UIPanel {
 
     /**
      * Construct a new UIFrameBar, adding the buttons as specified in the given EnumSet
-     * 
+     *
      * @param buttons
      *            the button types we want shown
      */
     public UIFrameBar(final EnumSet<FrameButtons> buttons) {
+        super("frameBar");
+
         _titleLabel = new UILabel("- untitled -");
         attachChild(_titleLabel);
 
@@ -48,7 +50,7 @@ public class UIFrameBar extends UIPanel {
             _helpButton = createFrameButton("?");
             _helpButton.addActionListener(new ActionListener() {
                 public void actionPerformed(final ActionEvent event) {
-                // TODO: Implement
+                    // TODO: Implement
                 }
             });
             attachChild(_helpButton);
@@ -60,7 +62,7 @@ public class UIFrameBar extends UIPanel {
             _minimizeButton = createFrameButton("_");
             _minimizeButton.addActionListener(new ActionListener() {
                 public void actionPerformed(final ActionEvent event) {
-                // TODO: Implement
+                    // TODO: Implement
                 }
             });
             attachChild(_minimizeButton);

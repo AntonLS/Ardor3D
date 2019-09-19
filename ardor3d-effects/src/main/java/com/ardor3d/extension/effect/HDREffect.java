@@ -1,30 +1,26 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.effect;
 
 import com.ardor3d.framework.DisplaySettings;
-import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.image.Texture.MagnificationFilter;
 import com.ardor3d.image.Texture.MinificationFilter;
 import com.ardor3d.image.Texture.WrapMode;
+import com.ardor3d.image.TextureStoreFormat;
 import com.ardor3d.renderer.effect.EffectManager;
-import com.ardor3d.renderer.effect.EffectStep_RenderScreenOverlay;
-import com.ardor3d.renderer.effect.EffectStep_SetRenderTarget;
 import com.ardor3d.renderer.effect.RenderEffect;
-import com.ardor3d.renderer.effect.RenderTarget;
-import com.ardor3d.renderer.effect.RenderTarget_Texture2D;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
-import com.ardor3d.renderer.state.RenderState;
-import com.ardor3d.renderer.state.RenderState.StateType;
-import com.ardor3d.util.resource.ResourceLocatorTool;
+import com.ardor3d.renderer.effect.rendertarget.RenderTarget;
+import com.ardor3d.renderer.effect.rendertarget.RenderTarget_Texture2D;
+import com.ardor3d.renderer.effect.step.EffectStep_RenderScreenOverlay;
+import com.ardor3d.renderer.effect.step.EffectStep_SetRenderTarget;
 
 public class HDREffect extends RenderEffect {
     private String shaderDirectory = "com/ardor3d/extension/effect/";
@@ -50,7 +46,7 @@ public class HDREffect extends RenderEffect {
         {
             _steps.add(new EffectStep_SetRenderTarget(RT_DOWNSAMPLED));
             final EffectStep_RenderScreenOverlay downsample = new EffectStep_RenderScreenOverlay();
-            downsample.getTargetMap().put("*Previous", 0);
+            downsample.getTargetMap().put(EffectManager.RT_PREVIOUS, 0);
             _steps.add(downsample);
         }
 
@@ -58,7 +54,7 @@ public class HDREffect extends RenderEffect {
         {
             _steps.add(new EffectStep_SetRenderTarget(RT_LUM64x64));
             final EffectStep_RenderScreenOverlay extract64 = new EffectStep_RenderScreenOverlay();
-            extract64.getEnforcedStates().put(StateType.GLSLShader, getLuminanceExtractionShader());
+//            extract64.getEnforcedStates().put(StateType.Shader, getLuminanceExtractionShader());
             extract64.getTargetMap().put(RT_DOWNSAMPLED, 0);
             _steps.add(extract64);
 
@@ -77,14 +73,14 @@ public class HDREffect extends RenderEffect {
         {
             _steps.add(new EffectStep_SetRenderTarget(RT_BRIGHTMAP));
             final EffectStep_RenderScreenOverlay bright = new EffectStep_RenderScreenOverlay();
-            bright.getEnforcedStates().put(StateType.GLSLShader, getBrightMapShader());
+//            bright.getEnforcedStates().put(StateType.Shader, getBrightMapShader());
             bright.getTargetMap().put(RT_DOWNSAMPLED, 0);
             bright.getTargetMap().put(RT_LUM1x1, 1);
             _steps.add(bright);
         }
 
         // finally: draw bloom texture and previous texture on fsq, blended.
-        _steps.add(new EffectStep_SetRenderTarget("*Next"));
+        _steps.add(new EffectStep_SetRenderTarget(EffectManager.RT_NEXT));
 
         final EffectStep_RenderScreenOverlay blendOverlay = new EffectStep_RenderScreenOverlay();
         blendOverlay.getTargetMap().put(RT_BRIGHTMAP, 0);
@@ -93,36 +89,36 @@ public class HDREffect extends RenderEffect {
         super.prepare(manager);
     }
 
-    private RenderState getLuminanceExtractionShader() {
-        final GLSLShaderObjectsState shader = new GLSLShaderObjectsState();
-        try {
-            shader.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(ColorReplaceEffect.class,
-                    shaderDirectory + "fsq.vert"));
-            shader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(ColorReplaceEffect.class,
-                    shaderDirectory + "luminance.frag"));
-        } catch (final Exception e) {
-            e.printStackTrace();
-        }
-        shader.setUniform("inputTex", 0);
-        return shader;
-    }
+//    private RenderState getLuminanceExtractionShader() {
+//        final ShaderState shader = new ShaderState();
+//        try {
+//            shader.setShader(ShaderType.Vertex, "fsq", ResourceLocatorTool
+//                    .getClassPathResourceAsString(ColorReplaceEffect.class, shaderDirectory + "fsq.vert"));
+//            shader.setShader(ShaderType.Fragment, "luminance", ResourceLocatorTool
+//                    .getClassPathResourceAsString(ColorReplaceEffect.class, shaderDirectory + "luminance.frag"));
+//        } catch (final Exception e) {
+//            e.printStackTrace();
+//        }
+//        shader.setUniform("inputTex", 0);
+//        return shader;
+//    }
 
-    private RenderState getBrightMapShader() {
-        final GLSLShaderObjectsState shader = new GLSLShaderObjectsState();
-        try {
-            shader.setVertexShader(ResourceLocatorTool.getClassPathResourceAsStream(ColorReplaceEffect.class,
-                    shaderDirectory + "fsq.vert"));
-            shader.setFragmentShader(ResourceLocatorTool.getClassPathResourceAsStream(ColorReplaceEffect.class,
-                    shaderDirectory + "brightmap.frag"));
-        } catch (final Exception e) {
-            e.printStackTrace();
-        }
-        shader.setUniform("inputTex", 0);
-        shader.setUniform("lum1x1Tex", 1);
-        shader.setUniform("exposurePow", 3.0f);
-        shader.setUniform("exposureCutoff", 0.0f);
-        return shader;
-    }
+//    private RenderState getBrightMapShader() {
+//        final ShaderState shader = new ShaderState();
+//        try {
+//            shader.setShader(ShaderType.Vertex, "fsq", ResourceLocatorTool
+//                    .getClassPathResourceAsString(ColorReplaceEffect.class, shaderDirectory + "fsq.vert"));
+//            shader.setShader(ShaderType.Fragment, "brightmap", ResourceLocatorTool
+//                    .getClassPathResourceAsString(ColorReplaceEffect.class, shaderDirectory + "brightmap.frag"));
+//        } catch (final Exception e) {
+//            e.printStackTrace();
+//        }
+//        shader.setUniform("inputTex", 0);
+//        shader.setUniform("lum1x1Tex", 1);
+//        shader.setUniform("exposurePow", 3.0f);
+//        shader.setUniform("exposureCutoff", 0.0f);
+//        return shader;
+//    }
 
     private void initTargets(final EffectManager manager) {
         final DisplaySettings canvas = manager.getCanvasSettings();
@@ -131,7 +127,7 @@ public class HDREffect extends RenderEffect {
 
         final RenderTarget_Texture2D downsampled = new RenderTarget_Texture2D(downsampledWidth, downsampledHeight,
                 TextureStoreFormat.RGBA16F);
-        downsampled.getTexture().setWrap(WrapMode.Clamp);
+        downsampled.getTexture().setWrap(WrapMode.EdgeClamp);
         manager.getRenderTargetMap().put(RT_DOWNSAMPLED, downsampled);
 
         manager.getRenderTargetMap().put(RT_LUM64x64, getLuminanceDownsampleTexture(64));
@@ -140,17 +136,17 @@ public class HDREffect extends RenderEffect {
 
         final RenderTarget_Texture2D brightmap = new RenderTarget_Texture2D(downsampledWidth, downsampledHeight,
                 TextureStoreFormat.RGBA16F);
-        brightmap.getTexture().setWrap(WrapMode.Clamp);
+        brightmap.getTexture().setWrap(WrapMode.EdgeClamp);
         manager.getRenderTargetMap().put(RT_BRIGHTMAP, brightmap);
 
         final RenderTarget_Texture2D bloomHoriz = new RenderTarget_Texture2D(downsampledWidth, downsampledHeight,
                 TextureStoreFormat.RGBA8);
-        bloomHoriz.getTexture().setWrap(WrapMode.Clamp);
+        bloomHoriz.getTexture().setWrap(WrapMode.EdgeClamp);
         manager.getRenderTargetMap().put(RT_BLOOM_HORIZONTAL, bloomHoriz);
 
         final RenderTarget_Texture2D bloom = new RenderTarget_Texture2D(downsampledWidth, downsampledHeight,
                 TextureStoreFormat.RGBA8);
-        bloom.getTexture().setWrap(WrapMode.Clamp);
+        bloom.getTexture().setWrap(WrapMode.EdgeClamp);
         manager.getRenderTargetMap().put(RT_BLOOM, bloom);
     }
 
@@ -164,7 +160,7 @@ public class HDREffect extends RenderEffect {
             target.getTexture().setMagnificationFilter(MagnificationFilter.NearestNeighbor);
         }
 
-        target.getTexture().setWrap(WrapMode.Clamp);
+        target.getTexture().setWrap(WrapMode.EdgeClamp);
         return target;
     }
 

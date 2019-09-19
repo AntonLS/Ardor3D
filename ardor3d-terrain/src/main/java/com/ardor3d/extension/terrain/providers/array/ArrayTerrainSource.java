@@ -1,15 +1,16 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.terrain.providers.array;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -17,7 +18,6 @@ import com.ardor3d.extension.terrain.client.TerrainConfiguration;
 import com.ardor3d.extension.terrain.client.TerrainSource;
 import com.ardor3d.extension.terrain.util.Tile;
 import com.ardor3d.math.type.ReadOnlyVector3;
-import com.google.common.collect.Sets;
 
 public class ArrayTerrainSource implements TerrainSource {
     private final int tileSize;
@@ -52,7 +52,7 @@ public class ArrayTerrainSource implements TerrainSource {
     @Override
     public Set<Tile> getValidTiles(final int clipmapLevel, final int tileX, final int tileY, final int numTilesX,
             final int numTilesY) throws Exception {
-        final Set<Tile> validTiles = Sets.newHashSet();
+        final Set<Tile> validTiles = new HashSet<>();
 
         final int heightMapSize = heightMapSizes.get(clipmapLevel);
         for (int y = 0; y < numTilesY; y++) {
@@ -60,8 +60,7 @@ public class ArrayTerrainSource implements TerrainSource {
                 final int xx = tileX + x;
                 final int yy = tileY + y;
                 if (xx >= 0 && xx * tileSize <= heightMapSize && yy >= 0 && yy * tileSize <= heightMapSize) {
-                    final Tile tile = new Tile(xx, yy);
-                    validTiles.add(tile);
+                    validTiles.add(new Tile(xx, yy));
                 }
             }
         }

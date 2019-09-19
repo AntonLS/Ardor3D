@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.model.collada.jdom;
@@ -23,10 +23,10 @@ import org.jdom2.CDATA;
 import org.jdom2.Comment;
 import org.jdom2.DataConversionException;
 import org.jdom2.Element;
-import org.jdom2.JDOMException;
 import org.jdom2.ProcessingInstruction;
 import org.jdom2.Text;
-import org.jdom2.xpath.XPath;
+import org.jdom2.xpath.XPathExpression;
+import org.jdom2.xpath.XPathFactory;
 
 import com.ardor3d.extension.model.collada.jdom.data.DataCache;
 import com.ardor3d.math.ColorRGBA;
@@ -46,7 +46,7 @@ public class ColladaDOMUtil {
 
     /**
      * Find element with specific id
-     * 
+     *
      * @param baseUrl
      *            url specifying target id
      * @return element with specific id or null if not found
@@ -57,7 +57,7 @@ public class ColladaDOMUtil {
 
     /**
      * Find element with specific sid
-     * 
+     *
      * @param baseUrl
      *            url specifying target sid
      * @return element with specific id or null if not found
@@ -68,7 +68,7 @@ public class ColladaDOMUtil {
 
     /**
      * Select nodes through an XPath query and return all hits as a List
-     * 
+     *
      * @param element
      *            root element to start search on
      * @param query
@@ -77,11 +77,11 @@ public class ColladaDOMUtil {
      *         {@link CDATA}, {@link Comment}, {@link ProcessingInstruction}, Boolean, Double, or String.
      */
     public List<?> selectNodes(final Element element, final String query) {
-        final XPath xPathExpression = getXPathExpression(query);
+        final XPathExpression<?> xPathExpression = getXPathExpression(query);
 
         try {
-            return xPathExpression.selectNodes(element);
-        } catch (final JDOMException e) {
+            return xPathExpression.evaluate(element);
+        } catch (final Exception e) {
             e.printStackTrace();
         }
         return Collections.emptyList();
@@ -89,7 +89,7 @@ public class ColladaDOMUtil {
 
     /**
      * Select nodes through an XPath query and returns the first hit
-     * 
+     *
      * @param element
      *            root element to start search on
      * @param query
@@ -99,11 +99,11 @@ public class ColladaDOMUtil {
      *         <code>null</code> if no item was selected.
      */
     public Object selectSingleNode(final Element element, final String query) {
-        final XPath xPathExpression = getXPathExpression(query);
+        final XPathExpression<?> xPathExpression = getXPathExpression(query);
 
         try {
-            return xPathExpression.selectSingleNode(element);
-        } catch (final JDOMException e) {
+            return xPathExpression.evaluateFirst(element);
+        } catch (final Exception e) {
             e.printStackTrace();
         }
         return null;
@@ -121,21 +121,22 @@ public class ColladaDOMUtil {
 
     /**
      * Compiles and return an XPath expression. Expressions are cached.
-     * 
+     *
      * @param query
      *            XPath query to compile
      * @return new XPath expression object
      */
-    private XPath getXPathExpression(final String query) {
+    private XPathExpression<?> getXPathExpression(final String query) {
 
         if (_dataCache.getxPathExpressions().containsKey(query)) {
             return _dataCache.getxPathExpressions().get(query);
         }
 
-        XPath xPathExpression = null;
+        final XPathFactory xpf = XPathFactory.instance();
+        XPathExpression<?> xPathExpression = null;
         try {
-            xPathExpression = XPath.newInstance(query);
-        } catch (final JDOMException e) {
+            xPathExpression = xpf.compile(query);
+        } catch (final Exception e) {
             e.printStackTrace();
         }
 
@@ -146,7 +147,7 @@ public class ColladaDOMUtil {
 
     /**
      * Parses the text under a node and returns it as a float array.
-     * 
+     *
      * @param node
      *            node to parse content from
      * @return parsed float array
@@ -176,7 +177,7 @@ public class ColladaDOMUtil {
 
     /**
      * Parses the text under a node and returns it as a double array.
-     * 
+     *
      * @param node
      *            node to parse content from
      * @return parsed double array
@@ -206,7 +207,7 @@ public class ColladaDOMUtil {
 
     /**
      * Parses the text under a node and returns it as an int array.
-     * 
+     *
      * @param node
      *            node to parse content from
      * @return parsed int array
@@ -236,7 +237,7 @@ public class ColladaDOMUtil {
 
     /**
      * Parses the text under a node and returns it as a boolean array.
-     * 
+     *
      * @param node
      *            node to parse content from
      * @return parsed boolean array
@@ -266,7 +267,7 @@ public class ColladaDOMUtil {
 
     /**
      * Parses the text under a node and returns it as a string array.
-     * 
+     *
      * @param node
      *            node to parse content from
      * @return parsed string array
@@ -292,14 +293,13 @@ public class ColladaDOMUtil {
 
     /**
      * Strips the namespace from all nodes in a tree.
-     * 
+     *
      * @param rootElement
      *            Root of strip operation
      */
     public void stripNamespace(final Element rootElement) {
         rootElement.setNamespace(null);
 
-        @SuppressWarnings("unchecked")
         final List<Element> children = rootElement.getChildren();
         final Iterator<Element> i = children.iterator();
         while (i.hasNext()) {
@@ -310,7 +310,7 @@ public class ColladaDOMUtil {
 
     /**
      * Parse an int value in an attribute.
-     * 
+     *
      * @param input
      *            Element containing the attribute
      * @param attributeName
@@ -331,7 +331,7 @@ public class ColladaDOMUtil {
 
     /**
      * Convert a Collada color description into an Ardor3D ColorRGBA
-     * 
+     *
      * @param colorDescription
      *            Collada color description
      * @return Ardor3d ColorRGBA
@@ -358,11 +358,10 @@ public class ColladaDOMUtil {
 
     /**
      * Find Element with semantic POSITION under an element with inputs
-     * 
+     *
      * @param v
      * @return
      */
-    @SuppressWarnings("unchecked")
     public Element getPositionSource(final Element v) {
         for (final Element input : v.getChildren("input")) {
             if ("POSITION".equals(input.getAttributeValue("semantic"))) {

@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.renderer;
@@ -54,8 +54,8 @@ import com.ardor3d.util.TextureKey;
  * textures.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.renderer.GeneratedTexturesExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/renderer_GeneratedTexturesExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/renderer_GeneratedTexturesExample.jpg", //
+        maxHeapMemory = 64)
 public class GeneratedTexturesExample extends ExampleBase {
     private final static int COUNT = 10;
     private final static int SPAN = 3;
@@ -144,8 +144,8 @@ public class GeneratedTexturesExample extends ExampleBase {
         padding = wside / 10;
 
         // Set up hud
-        hud = new UIHud();
-        hud.setupInput(_canvas, _physicalLayer, _logicalLayer);
+        hud = new UIHud(_canvas);
+        hud.setupInput(_physicalLayer, _logicalLayer);
 
         // Set up the frames
         for (int i = 0; i < views.length; i++) {
@@ -157,9 +157,9 @@ public class GeneratedTexturesExample extends ExampleBase {
 
         // Set up the panels
         for (int i = 0; i < COUNT; i++) {
-            srcs[i] = new UIPanel(null) {
+            srcs[i] = new UIPanel("src-" + i, null) {
                 @Override
-                public boolean mousePressed(final com.ardor3d.input.MouseButton button,
+                public boolean mousePressed(final com.ardor3d.input.mouse.MouseButton button,
                         final com.ardor3d.input.InputState state) {
                     if (zoom || this == zoomed) {
                         toggleZoom(this);
@@ -198,18 +198,18 @@ public class GeneratedTexturesExample extends ExampleBase {
 
         // simplex - luminance
         setTerrain(srcs[index], terrain, false, false);
-        srcs[index++].setTooltipText("Simplex noise.");
+//        srcs[index++].setTooltipText("Simplex noise.");
 
         // simplex + FBM - luminance
         setTerrain(srcs[index], terrain, true, false);
-        srcs[index++].setTooltipText("Simplex noise + Fractional Brownian Motion (fBm).");
+//        srcs[index++].setTooltipText("Simplex noise + Fractional Brownian Motion (fBm).");
 
         // color ramp
         setColors(srcs[index++]);
 
         // simplex + FBM - color
         setTerrain(srcs[index], terrain, true, true);
-        srcs[index++].setTooltipText("Noise + Colormap == Something that looks like a map. :)");
+//        srcs[index++].setTooltipText("Noise + Colormap == Something that looks like a map. :)");
 
         // *** A few textures derived from samples in the libnoise project.
         // *** Perhaps we can get an some better ones from the community :)
@@ -246,8 +246,7 @@ public class GeneratedTexturesExample extends ExampleBase {
             zoomed = null;
         }
 
-        final int endY = 0, endX = (_canvas.getCanvasRenderer().getCamera().getWidth() - _canvas.getCanvasRenderer()
-                .getCamera().getHeight()) / 2;
+        final int endY = 0, endX = (hud.getWidth() - hud.getHeight()) / 2;
 
         // add an animator to do the zoom
         uiPanel.addController(new SpatialController<UIPanel>() {
@@ -270,12 +269,12 @@ public class GeneratedTexturesExample extends ExampleBase {
 
                 // use an scurve to smoothly zoom
                 final float sCurve = MathUtils.scurve5(ratio);
-                final float size = sCurve * (_canvas.getCanvasRenderer().getCamera().getHeight() - hside) + hside;
+                final float size = sCurve * (hud.getHeight() - hside) + hside;
                 parent.setLocalComponentSize((int) (size * hside / wside), (int) size);
 
                 // use an scurve to smoothly shift origin
-                parent.setHudXY(Math.round(MathUtils.lerp(sCurve, originX, endX)), Math.round(MathUtils.lerp(sCurve,
-                        originY, endY)));
+                parent.setHudXY(Math.round(MathUtils.lerp(sCurve, originX, endX)),
+                        Math.round(MathUtils.lerp(sCurve, originY, endY)));
 
                 parent.layout();
             }
@@ -304,15 +303,14 @@ public class GeneratedTexturesExample extends ExampleBase {
     }
 
     private void setCheck(final UIPanel panel) {
-        panel.setTooltipText("Simple Checkerboard pattern");
+        // panel.setTooltipText("Simple Checkerboard pattern");
 
         final Texture tex = new Texture2D();
 
         // Build up our function
         final Function3D finalCheck = new CheckerFunction3D();
 
-        final Image img = GeneratedImageFactory.createLuminance8Image(finalCheck, wside, hside, 1, 1, 9, 1, 9, 0, 0,
-                -1, 1);
+        final Image img = GeneratedImageFactory.createRed8Image(finalCheck, wside, hside, 1, 1, 9, 1, 9, 0, 0, -1, 1);
         tex.setImage(img);
         // No need for filtering on this one...
         tex.setTextureKey(TextureKey.getRTTKey(MinificationFilter.NearestNeighborNoMipMaps));
@@ -323,7 +321,7 @@ public class GeneratedTexturesExample extends ExampleBase {
     }
 
     private void setColors(final UIPanel panel) {
-        panel.setTooltipText("The 1-D color map used to colorize our gradient.");
+        // panel.setTooltipText("The 1-D color map used to colorize our gradient.");
 
         final Texture tex = new Texture2D();
         final Image img = GeneratedImageFactory.create1DColorImage(false, terrainColors);
@@ -336,7 +334,7 @@ public class GeneratedTexturesExample extends ExampleBase {
     }
 
     private void setMandelbrot(final UIPanel panel) {
-        panel.setTooltipText("The famous Mandelbrot fractal");
+        // panel.setTooltipText("The famous Mandelbrot fractal");
 
         final Texture tex = new Texture2D();
 
@@ -352,8 +350,7 @@ public class GeneratedTexturesExample extends ExampleBase {
         colors[255] = ColorRGBA.BLACK;
         GeneratedImageFactory.fillInColorTable(colors);
 
-        Image img = GeneratedImageFactory.createLuminance8Image(finalMandel, (int) (1.5 * wside), (int) (1.5 * hside),
-                1);
+        Image img = GeneratedImageFactory.createRed8Image(finalMandel, (int) (1.5 * wside), (int) (1.5 * hside), 1);
         img = GeneratedImageFactory.createColorImageFromLuminance8(img, false, colors);
         tex.setImage(img);
         tex.setTextureKey(TextureKey.getRTTKey(MinificationFilter.Trilinear));
@@ -364,7 +361,7 @@ public class GeneratedTexturesExample extends ExampleBase {
     }
 
     private void setVoronoi(final UIPanel panel) {
-        panel.setTooltipText("Voronoi graph");
+        // panel.setTooltipText("Voronoi graph");
 
         final Texture tex = new Texture2D();
 
@@ -373,7 +370,7 @@ public class GeneratedTexturesExample extends ExampleBase {
         colors[255] = ColorRGBA.BLACK;
         GeneratedImageFactory.fillInColorTable(colors);
 
-        Image img = GeneratedImageFactory.createLuminance8Image(new VoroniFunction3D(6, .5, true, 1), wside, hside, 1);
+        Image img = GeneratedImageFactory.createRed8Image(new VoroniFunction3D(6, .5, true, 1), wside, hside, 1);
         img = GeneratedImageFactory.createColorImageFromLuminance8(img, false, colors);
         tex.setImage(img);
         tex.setTextureKey(TextureKey.getRTTKey(MinificationFilter.Trilinear));
@@ -389,7 +386,7 @@ public class GeneratedTexturesExample extends ExampleBase {
         if (useFbm) {
             func = new FbmFunction3D(func, 5, 0.5, 0.5, 3.14);
         }
-        Image img = GeneratedImageFactory.createLuminance8Image(func, wside, hside, 1);
+        Image img = GeneratedImageFactory.createRed8Image(func, wside, hside, 1);
         if (useColor) {
             img = GeneratedImageFactory.createColorImageFromLuminance8(img, false, terrainColors);
         }
@@ -402,7 +399,7 @@ public class GeneratedTexturesExample extends ExampleBase {
     }
 
     private void setWoodGrain(final UIPanel panel) {
-        panel.setTooltipText("Dark wood grain.");
+        // panel.setTooltipText("Dark wood grain.");
 
         final Texture tex = new Texture2D();
 
@@ -414,8 +411,8 @@ public class GeneratedTexturesExample extends ExampleBase {
         final Function3D combinedWood = Functions.add(baseWood, woodGrain);
         final Function3D perturbedWood = new TurbulenceFunction3D(combinedWood, 1 / 256.0, 4, 4.0);
         final Function3D translatedWood = Functions.translateInput(perturbedWood, 0, 0, 1.5);
-        final Function3D rotatedWood = Functions.rotateInput(translatedWood, new Matrix3().fromAngles(
-                MathUtils.DEG_TO_RAD * 6, 0, 0));
+        final Function3D rotatedWood = Functions.rotateInput(translatedWood,
+                new Matrix3().fromAngles(MathUtils.DEG_TO_RAD * 6, 0, 0));
         final Function3D finalWood = new TurbulenceFunction3D(rotatedWood, 1 / 512.0, 2, 2.0);
 
         final ReadOnlyColorRGBA[] woodColors = new ReadOnlyColorRGBA[256];
@@ -424,7 +421,7 @@ public class GeneratedTexturesExample extends ExampleBase {
         woodColors[255] = new ColorRGBA(60 / 255f, 10 / 255f, 8 / 255f, 1);
         GeneratedImageFactory.fillInColorTable(woodColors);
 
-        Image img = GeneratedImageFactory.createLuminance8Image(finalWood, wside, hside, 1);
+        Image img = GeneratedImageFactory.createRed8Image(finalWood, wside, hside, 1);
         img = GeneratedImageFactory.createColorImageFromLuminance8(img, false, woodColors);
         tex.setImage(img);
         tex.setTextureKey(TextureKey.getRTTKey(MinificationFilter.Trilinear));
@@ -435,15 +432,15 @@ public class GeneratedTexturesExample extends ExampleBase {
     }
 
     private void setJade(final UIPanel panel) {
-        panel.setTooltipText("A Jade-like texture");
+        // panel.setTooltipText("A Jade-like texture");
 
         final Texture tex = new Texture2D();
 
         // Build up our function
         final Function3D primaryJade = new RidgeFunction3D(Functions.simplexNoise(), 6, 2.0, 2.207);
         final Function3D baseSecondaryJade = new CylinderFunction3D(2);
-        final Function3D rotatedBaseSecondaryJade = Functions.rotateInput(baseSecondaryJade, new Matrix3().fromAngles(
-                0, MathUtils.DEG_TO_RAD * 65, MathUtils.DEG_TO_RAD * 85));
+        final Function3D rotatedBaseSecondaryJade = Functions.rotateInput(baseSecondaryJade,
+                new Matrix3().fromAngles(0, MathUtils.DEG_TO_RAD * 65, MathUtils.DEG_TO_RAD * 85));
         final Function3D perturbedBaseSecondaryJade = new TurbulenceFunction3D(rotatedBaseSecondaryJade, 1.0 / 4.0, 4,
                 4.0);
         final Function3D secondaryJade = Functions.scaleBias(perturbedBaseSecondaryJade, .25, 0);
@@ -458,7 +455,7 @@ public class GeneratedTexturesExample extends ExampleBase {
         jadeColors[255] = new ColorRGBA(29 / 255f, 135 / 255f, 102 / 255f, 1);
         GeneratedImageFactory.fillInColorTable(jadeColors);
 
-        Image img = GeneratedImageFactory.createLuminance8Image(finalJade, wside, hside, 1);
+        Image img = GeneratedImageFactory.createRed8Image(finalJade, wside, hside, 1);
         img = GeneratedImageFactory.createColorImageFromLuminance8(img, false, jadeColors);
         tex.setImage(img);
         tex.setTextureKey(TextureKey.getRTTKey(MinificationFilter.Trilinear));
@@ -469,8 +466,8 @@ public class GeneratedTexturesExample extends ExampleBase {
     }
 
     private void setSlime(final UIPanel panel) {
-        panel.setTooltipText("Slime: Built with two bubble functions of different sizes\n"
-                + "and blended with a mapping function.");
+        // panel.setTooltipText( "Slime: Built with two bubble functions of different sizes\n" + "and blended with a
+        // mapping function.");
         panel.setTooltipPopTime(25);
 
         final Texture tex = new Texture2D();
@@ -493,7 +490,7 @@ public class GeneratedTexturesExample extends ExampleBase {
         slimeColors[255] = new ColorRGBA(128 / 255f, 255 / 255f, 128 / 255f, 1);
         GeneratedImageFactory.fillInColorTable(slimeColors);
 
-        Image img = GeneratedImageFactory.createLuminance8Image(finalSlime, wside, hside, 1);
+        Image img = GeneratedImageFactory.createRed8Image(finalSlime, wside, hside, 1);
         img = GeneratedImageFactory.createColorImageFromLuminance8(img, false, slimeColors);
         tex.setImage(img);
         tex.setTextureKey(TextureKey.getRTTKey(MinificationFilter.Trilinear));
@@ -504,8 +501,8 @@ public class GeneratedTexturesExample extends ExampleBase {
     }
 
     private void applyTexture(final Texture tex, final UIPanel panel) {
-        final ImageBackdrop backdrop = new ImageBackdrop(new SubTex(tex, 0, 0, tex.getImage().getWidth(), -tex
-                .getImage().getHeight()));
+        final ImageBackdrop backdrop = new ImageBackdrop(
+                new SubTex(tex, 0, 0, tex.getImage().getWidth(), -tex.getImage().getHeight()));
         panel.setBackdrop(backdrop);
     }
 }

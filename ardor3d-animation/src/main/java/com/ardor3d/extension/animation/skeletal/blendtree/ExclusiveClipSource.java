@@ -1,15 +1,17 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.animation.skeletal.blendtree;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,8 +19,6 @@ import com.ardor3d.extension.animation.skeletal.AnimationManager;
 import com.ardor3d.extension.animation.skeletal.clip.AnimationClip;
 import com.ardor3d.extension.animation.skeletal.clip.JointChannel;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * Similar to a ClipSource, this class samples and returns values from the channels of an AnimationClip.
@@ -27,7 +27,7 @@ import com.google.common.collect.Maps;
 public class ExclusiveClipSource extends ClipSource {
 
     /** Our List of channels to exclude by name. */
-    private final List<String> _disabledChannels = Lists.newArrayList();
+    private final List<String> _disabledChannels = new ArrayList<>();
 
     /**
      * Construct a new source. Clip and Manager must be set separately before use.
@@ -91,7 +91,7 @@ public class ExclusiveClipSource extends ClipSource {
         final Map<String, ? extends Object> orig = super.getSourceData(manager);
 
         // make a copy, removing specific channels
-        final Map<String, ? extends Object> data = Maps.newHashMap(orig);
+        final Map<String, ? extends Object> data = new HashMap<>(orig);
         if (_disabledChannels != null) {
             for (final String key : _disabledChannels) {
                 data.remove(key);

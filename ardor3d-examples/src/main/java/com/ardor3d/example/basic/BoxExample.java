@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.basic;
@@ -14,11 +14,10 @@ import com.ardor3d.bounding.BoundingBox;
 import com.ardor3d.example.ExampleBase;
 import com.ardor3d.example.Purpose;
 import com.ardor3d.image.Texture;
+import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Matrix3;
 import com.ardor3d.math.Vector3;
-import com.ardor3d.renderer.state.MaterialState;
-import com.ardor3d.renderer.state.MaterialState.ColorMaterial;
 import com.ardor3d.renderer.state.TextureState;
 import com.ardor3d.scenegraph.Mesh;
 import com.ardor3d.scenegraph.shape.Box;
@@ -29,8 +28,8 @@ import com.ardor3d.util.TextureManager;
  * A simple example showing a textured and lit box spinning.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.basic.BoxExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/basic_BoxExample.jpg", //
-maxHeapMemory = 64)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/basic_BoxExample.jpg", //
+        maxHeapMemory = 64)
 public class BoxExample extends ExampleBase {
 
     /** Keep a reference to the box to be able to rotate it each frame. */
@@ -65,6 +64,7 @@ public class BoxExample extends ExampleBase {
     @Override
     protected void initExample() {
         _canvas.setTitle("Box Example");
+        _canvas.getCanvasRenderer().getRenderer().setBackgroundColor(ColorRGBA.BLACK);
 
         // Create a new box centered at (0,0,0) with width/height/depth of size 10.
         box = new Box("Box", new Vector3(0, 0, 0), 5, 5, 5);
@@ -74,17 +74,18 @@ public class BoxExample extends ExampleBase {
         box.setTranslation(new Vector3(0, 0, -15));
         // Give the box some nice colors.
         box.setRandomColors();
+        // Set the box's material
+        box.setRenderMaterial("lit/textured/vertex_color_phong.yaml");
         // Attach the box to the scenegraph root.
         _root.attachChild(box);
+
+        // XXX: try out fog by uncommenting below
+        // box.setRenderMaterial("lit/textured/vertex_color_phong_fog.yaml");
+        // box.setProperty(FogParams.DefaultPropertyKey, new FogParams(50f, 100f));
 
         // Add a texture to the box.
         final TextureState ts = new TextureState();
         ts.setTexture(TextureManager.load("images/ardor3d_white_256.jpg", Texture.MinificationFilter.Trilinear, true));
         box.setRenderState(ts);
-
-        // Add a material to the box, to show both vertex color and lighting/shading.
-        final MaterialState ms = new MaterialState();
-        ms.setColorMaterial(ColorMaterial.Diffuse);
-        box.setRenderState(ms);
     }
 }

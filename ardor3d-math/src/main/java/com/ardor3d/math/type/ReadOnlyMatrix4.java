@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.math.type;
@@ -13,6 +13,7 @@ package com.ardor3d.math.type;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 
+import com.ardor3d.math.Matrix3;
 import com.ardor3d.math.Matrix4;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.math.Vector4;
@@ -102,4 +103,6 @@ public interface ReadOnlyMatrix4 {
     double getM32();
 
     double getM33();
+
+    void toMatrix3(final Matrix3 store);
 }

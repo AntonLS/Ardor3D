@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
@@ -49,11 +49,8 @@ public class UIScrollBar extends UIPanel {
             btBottomRight.setLayoutData(BorderLayoutData.EAST);
         }
         applySkin();
+        pack();
 
-        updateMinimumSizeFromContents();
-        compact();
-
-        layout();
         final ActionListener al = new ActionListener() {
             public void actionPerformed(final ActionEvent event) {
                 int direction;
@@ -96,7 +93,7 @@ public class UIScrollBar extends UIPanel {
 
     /**
      * Add the specified listener to this scrollbar's list of listeners notified when it's changed.
-     * 
+     *
      * @param listener
      */
     public void addActionListener(final ActionListener listener) {

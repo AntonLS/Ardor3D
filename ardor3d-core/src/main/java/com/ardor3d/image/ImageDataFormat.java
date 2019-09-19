@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.image;
@@ -16,15 +16,11 @@ public enum ImageDataFormat {
     RGBA(4, false, true), //
     BGR(3, false, false), //
     BGRA(4, false, true), //
-    Luminance(1, false, false), //
-    LuminanceAlpha(2, false, true), //
     Alpha(1, false, true), //
-    Intensity(1, false, false), //
     Red(1, false, false), //
     Green(1, false, false), //
     Blue(1, false, false), //
     StencilIndex(1, false, false), //
-    ColorIndex(1, false, false), //
     Depth(1, false, false), //
     PrecompressedDXT1(1, true, false), //
     PrecompressedDXT1A(1, true, true), //

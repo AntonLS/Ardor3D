@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.pipeline;
@@ -59,6 +59,7 @@ import com.ardor3d.scenegraph.hint.LightCombineMode;
 import com.ardor3d.ui.text.BasicText;
 import com.ardor3d.util.GameTaskQueue;
 import com.ardor3d.util.GameTaskQueueManager;
+import com.ardor3d.util.MaterialUtil;
 import com.ardor3d.util.ReadOnlyTimer;
 import com.ardor3d.util.resource.ResourceLocatorTool;
 import com.ardor3d.util.resource.ResourceSource;
@@ -68,8 +69,8 @@ import com.ardor3d.util.resource.URLResourceSource;
  * Illustrates loading a model from Collada. If the model also contains an animation, the animation is played as well.
  */
 @Purpose(htmlDescriptionKey = "com.ardor3d.example.pipeline.ColladaExample", //
-thumbnailPath = "com/ardor3d/example/media/thumbnails/pipeline_ColladaExample.jpg", //
-maxHeapMemory = 128)
+        thumbnailPath = "com/ardor3d/example/media/thumbnails/pipeline_ColladaExample.jpg", //
+        maxHeapMemory = 128)
 public class ColladaExample extends ExampleBase {
 
     private Node colladaNode;
@@ -104,7 +105,8 @@ public class ColladaExample extends ExampleBase {
         _lightState.attach(light);
 
         // Load collada model
-        loadColladaModel(ResourceLocatorTool.locateResource(ResourceLocatorTool.TYPE_MODEL, "collada/sony/Seymour.dae"));
+        loadColladaModel(
+                ResourceLocatorTool.locateResource(ResourceLocatorTool.TYPE_MODEL, "collada/sony/Seymour.dae"));
 
         final File rootDir = new File(".");
         daeFiles = findFiles(rootDir, ".dae", null);
@@ -126,20 +128,20 @@ public class ColladaExample extends ExampleBase {
 
     private void createHUD() {
         final BasicText t1 = BasicText.createDefaultTextLabel("Text1", "Seymour.dae");
-        t1.getSceneHints().setRenderBucketType(RenderBucketType.Ortho);
+        t1.getSceneHints().setRenderBucketType(RenderBucketType.OrthoOrder);
         t1.getSceneHints().setLightCombineMode(LightCombineMode.Off);
         t1.setTranslation(new Vector3(5, 0 * (t1.getHeight() + 5) + 10, 0));
-        _root.attachChild(t1);
+        _orthoRoot.attachChild(t1);
+        _orthoRoot.getSceneHints().setCullHint(CullHint.Never);
         _root.getSceneHints().setCullHint(CullHint.Never);
 
-        hud = new UIHud();
-        hud.setupInput(_canvas, _physicalLayer, _logicalLayer);
+        hud = new UIHud(_canvas);
+        hud.setupInput(_physicalLayer, _logicalLayer);
         hud.setMouseManager(_mouseManager);
 
         // Add fps display
         frameRateLabel = new UILabel("X");
-        frameRateLabel.setHudXY(5,
-                _canvas.getCanvasRenderer().getCamera().getHeight() - 5 - frameRateLabel.getContentHeight());
+        frameRateLabel.setHudXY(5, hud.getHeight() - 5 - frameRateLabel.getContentHeight());
         frameRateLabel.setForegroundColor(ColorRGBA.WHITE);
         hud.add(frameRateLabel);
 
@@ -187,8 +189,8 @@ public class ColladaExample extends ExampleBase {
         });
         basePanel.add(skeletonCheck);
 
-        boneLabelCheck.setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, skeletonCheck, Alignment.BOTTOM_LEFT, 0,
-                -5));
+        boneLabelCheck
+                .setLayoutData(new AnchorLayoutData(Alignment.TOP_LEFT, skeletonCheck, Alignment.BOTTOM_LEFT, 0, -5));
         boneLabelCheck.setSelected(false);
         boneLabelCheck.setEnabled(showSkeleton);
         boneLabelCheck.addActionListener(new ActionListener() {
@@ -198,16 +200,14 @@ public class ColladaExample extends ExampleBase {
         });
         basePanel.add(boneLabelCheck);
 
-        optionsFrame.updateMinimumSizeFromContents();
-        optionsFrame.layout();
         optionsFrame.pack();
 
         optionsFrame.setUseStandin(true);
         optionsFrame.setOpacity(0.8f);
 
         final Camera cam = _canvas.getCanvasRenderer().getCamera();
-        optionsFrame.setLocalXY(cam.getWidth() - optionsFrame.getLocalComponentWidth() - 10, cam.getHeight()
-                - optionsFrame.getLocalComponentHeight() - 10);
+        optionsFrame.setLocalXY(cam.getWidth() - optionsFrame.getLocalComponentWidth() - 10,
+                cam.getHeight() - optionsFrame.getLocalComponentHeight() - 10);
         hud.add(optionsFrame);
 
         UIComponent.setUseTransparency(true);
@@ -233,6 +233,7 @@ public class ColladaExample extends ExampleBase {
 
             // Add colladaNode to root
             _root.attachChild(colladaNode);
+            MaterialUtil.autoMaterials(colladaNode);
 
             // Setup camera
             ReadOnlyVector3 upAxis = Vector3.UNIT_Y;
@@ -306,7 +307,6 @@ public class ColladaExample extends ExampleBase {
             final double near = Math.max(radius / 50.0, 0.25);
             final double far = Math.min(radius * 5, 10000.0);
             cam.setFrustumPerspective(50.0, cam.getWidth() / (double) cam.getHeight(), near, far);
-            cam.update();
 
             _controlHandle.setMoveSpeed(radius / 1.0);
         }

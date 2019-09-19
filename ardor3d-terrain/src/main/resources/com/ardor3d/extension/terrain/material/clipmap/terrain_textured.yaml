@@ -1,0 +1,54 @@
+--- # Material
+name: skinned mesh
+techniques: 
+  passes: 
+      - 
+        attributes:
+          - key: vertex
+
+        uniforms: 
+          - builtIn: [model, view, projection, fogParams]
+          - 
+            shaderKey: eyePosition
+            type: Float3
+            source: SpatialProperty
+          - 
+            shaderKey: scale
+            type: Float1
+            source: SpatialProperty
+          - 
+            shaderKey: vertexDistance
+            type: Int1
+            source: SpatialProperty
+          - 
+            shaderKey: clipSideSize
+            type: Int1
+            source: SpatialProperty
+          - 
+            shaderKey: levels
+            type: Int1
+            source: SpatialProperty
+          - 
+            shaderKey: minLevel
+            type: Int1
+            source: SpatialProperty
+          - 
+            shaderKey: validLevels
+            type: Int1
+            source: SpatialProperty
+          - 
+            shaderKey: showDebug
+            type: Int1
+            source: SpatialProperty
+          - 
+            shaderKey: sliceOffset
+            type: Float2
+            source: SpatialProperty
+
+        shaders: 
+          Vertex: 
+            source: clipmap/terrain.vert
+
+          Fragment:
+            source: clipmap/terrain.frag
+            defines: [USE_FOG]

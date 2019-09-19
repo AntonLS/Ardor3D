@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.example.interpolation;
@@ -14,15 +14,13 @@ import com.ardor3d.bounding.BoundingBox;
 import com.ardor3d.example.ExampleBase;
 import com.ardor3d.framework.Canvas;
 import com.ardor3d.image.Texture;
-import com.ardor3d.input.Key;
+import com.ardor3d.input.keyboard.Key;
 import com.ardor3d.input.logical.InputTrigger;
 import com.ardor3d.input.logical.KeyPressedCondition;
 import com.ardor3d.input.logical.TriggerAction;
 import com.ardor3d.input.logical.TwoInputStates;
 import com.ardor3d.math.Vector3;
-import com.ardor3d.renderer.state.MaterialState;
 import com.ardor3d.renderer.state.TextureState;
-import com.ardor3d.renderer.state.MaterialState.ColorMaterial;
 import com.ardor3d.scenegraph.Mesh;
 import com.ardor3d.scenegraph.controller.ComplexSpatialController.RepeatType;
 import com.ardor3d.scenegraph.controller.interpolation.CurveInterpolationController;
@@ -50,10 +48,6 @@ public abstract class InterpolationControllerBase<C extends InterpolationControl
         final TextureState ts = new TextureState();
         ts.setTexture(TextureManager.load("images/ardor3d_white_256.jpg", Texture.MinificationFilter.Trilinear, true));
         box.setRenderState(ts);
-
-        final MaterialState ms = new MaterialState();
-        ms.setColorMaterial(ColorMaterial.Diffuse);
-        box.setRenderState(ms);
 
         // Create our controller
         final C controller = createController();
@@ -94,7 +88,7 @@ public abstract class InterpolationControllerBase<C extends InterpolationControl
         }));
 
         // Add a slow down command
-        _logicalLayer.registerTrigger(new InputTrigger(new KeyPressedCondition(Key.LBRACKET), new TriggerAction() {
+        _logicalLayer.registerTrigger(new InputTrigger(new KeyPressedCondition(Key.LEFT_BRACKET), new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputState, final double tpf) {
                 controller.setSpeed(getNewSpeed(false, controller));
                 speedText.setText(getSpeedText(controller));
@@ -102,7 +96,7 @@ public abstract class InterpolationControllerBase<C extends InterpolationControl
         }));
 
         // Add a speed up command
-        _logicalLayer.registerTrigger(new InputTrigger(new KeyPressedCondition(Key.RBRACKET), new TriggerAction() {
+        _logicalLayer.registerTrigger(new InputTrigger(new KeyPressedCondition(Key.RIGHT_BRACKET), new TriggerAction() {
             public void perform(final Canvas source, final TwoInputStates inputState, final double tpf) {
                 controller.setSpeed(getNewSpeed(true, controller));
                 speedText.setText(getSpeedText(controller));
@@ -128,7 +122,7 @@ public abstract class InterpolationControllerBase<C extends InterpolationControl
 
     /**
      * Implemented by sub classes to return a concrete controller.
-     * 
+     *
      * @return The controller to test, can not be null (otherwise a null pointer exception will be thrown).
      */
     protected abstract C createController();

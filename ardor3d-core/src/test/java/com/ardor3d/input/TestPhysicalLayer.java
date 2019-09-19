@@ -1,22 +1,17 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.input;
 
-import static org.easymock.EasyMock.expect;
-import static org.easymock.classextension.EasyMock.createMock;
-import static org.easymock.classextension.EasyMock.replay;
-import static org.easymock.classextension.EasyMock.verify;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.easymock.EasyMock.*;
+import static org.junit.Assert.*;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -25,6 +20,21 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.ardor3d.input.Focus.FocusWrapper;
+import com.ardor3d.input.character.CharacterInputEvent;
+import com.ardor3d.input.character.CharacterInputWrapper;
+import com.ardor3d.input.controller.ControllerEvent;
+import com.ardor3d.input.controller.ControllerWrapper;
+import com.ardor3d.input.gesture.GestureWrapper;
+import com.ardor3d.input.gesture.event.AbstractGestureEvent;
+import com.ardor3d.input.keyboard.Key;
+import com.ardor3d.input.keyboard.KeyEvent;
+import com.ardor3d.input.keyboard.KeyState;
+import com.ardor3d.input.keyboard.KeyboardWrapper;
+import com.ardor3d.input.mouse.ButtonState;
+import com.ardor3d.input.mouse.MouseButton;
+import com.ardor3d.input.mouse.MouseState;
+import com.ardor3d.input.mouse.MouseWrapper;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
@@ -32,21 +42,27 @@ import com.google.common.collect.PeekingIterator;
 public class TestPhysicalLayer {
     KeyboardWrapper keyboardWrapper;
     MouseWrapper mouseWrapper;
-    FocusWrapper focusWrapper;
     ControllerWrapper controllerWrapper;
+    GestureWrapper gestureWrapper;
+    FocusWrapper focusWrapper;
+    CharacterInputWrapper characterWrapper;
     PhysicalLayer pl;
 
     Object[] mocks;
 
-    List<KeyEvent> noKeys = new LinkedList<KeyEvent>();
-    List<KeyEvent> Adown = new LinkedList<KeyEvent>();
-    List<KeyEvent> AdownBdown = new LinkedList<KeyEvent>();
-    List<KeyEvent> AdownAup = new LinkedList<KeyEvent>();
+    List<KeyEvent> noKeys = new LinkedList<>();
+    List<KeyEvent> Adown = new LinkedList<>();
+    List<KeyEvent> AdownBdown = new LinkedList<>();
+    List<KeyEvent> AdownAup = new LinkedList<>();
 
-    List<ControllerEvent> nothing = new LinkedList<ControllerEvent>();
+    List<ControllerEvent> nothing = new LinkedList<>();
 
-    List<MouseState> buttonDown = new LinkedList<MouseState>();
-    List<MouseState> noMice = new LinkedList<MouseState>();
+    List<AbstractGestureEvent> noGestures = new LinkedList<>();
+
+    List<CharacterInputEvent> noCharacters = new LinkedList<>();
+
+    List<MouseState> buttonDown = new LinkedList<>();
+    List<MouseState> noMice = new LinkedList<>();
 
     List<InputState> inputStates;
     InputState is;
@@ -57,22 +73,26 @@ public class TestPhysicalLayer {
         keyboardWrapper = createMock("KeyboardWrapper", KeyboardWrapper.class);
         mouseWrapper = createMock("MouseWrapper", MouseWrapper.class);
         controllerWrapper = createMock("ControllerWrapper", ControllerWrapper.class);
+        gestureWrapper = createMock("GestureWrapper", GestureWrapper.class);
         focusWrapper = createMock("FocusWrapper", FocusWrapper.class);
+        characterWrapper = createMock("CharacterInputWrapper", CharacterInputWrapper.class);
 
-        pl = new PhysicalLayer(keyboardWrapper, mouseWrapper, controllerWrapper, focusWrapper);
+        pl = new PhysicalLayer.Builder().with(keyboardWrapper).with(mouseWrapper).with(controllerWrapper)
+                .with(gestureWrapper).with(focusWrapper).with(characterWrapper).build();
 
-        mocks = new Object[] { keyboardWrapper, mouseWrapper, controllerWrapper, focusWrapper };
+        mocks = new Object[] { keyboardWrapper, mouseWrapper, controllerWrapper, gestureWrapper, focusWrapper,
+                characterWrapper };
 
-        Adown.add(new KeyEvent(Key.A, KeyState.DOWN, 'a'));
+        Adown.add(new KeyEvent(Key.A, KeyState.DOWN));
 
-        AdownBdown.add(new KeyEvent(Key.A, KeyState.DOWN, 'a'));
-        AdownBdown.add(new KeyEvent(Key.B, KeyState.DOWN, 'b'));
+        AdownBdown.add(new KeyEvent(Key.A, KeyState.DOWN));
+        AdownBdown.add(new KeyEvent(Key.B, KeyState.DOWN));
 
-        AdownAup.add(new KeyEvent(Key.A, KeyState.DOWN, 'a'));
-        AdownAup.add(new KeyEvent(Key.A, KeyState.UP, 'a'));
+        AdownAup.add(new KeyEvent(Key.A, KeyState.DOWN));
+        AdownAup.add(new KeyEvent(Key.A, KeyState.UP));
 
-        buttonDown.add(new MouseState(0, 0, 0, 0, 0, MouseButton.makeMap(ButtonState.DOWN, ButtonState.UP,
-                ButtonState.UP), null));
+        buttonDown.add(new MouseState(0, 0, 0, 0, 0,
+                MouseButton.makeMap(ButtonState.DOWN, ButtonState.UP, ButtonState.UP), null));
     }
 
     @After
@@ -85,17 +105,25 @@ public class TestPhysicalLayer {
         keyboardWrapper.init();
         mouseWrapper.init();
         controllerWrapper.init();
+        gestureWrapper.init();
         focusWrapper.init();
+        characterWrapper.init();
 
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(Adown.iterator()));
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(Adown.iterator()));
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
 
-        expect(mouseWrapper.getEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(3);
+        expect(mouseWrapper.getMouseEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(3);
 
-        expect(controllerWrapper.getEvents()).andReturn(Iterators.peekingIterator(nothing.iterator())).times(3);
+        expect(controllerWrapper.getControllerEvents()).andReturn(Iterators.peekingIterator(nothing.iterator()))
+                .times(3);
+
+        expect(gestureWrapper.getGestureEvents()).andReturn(Iterators.peekingIterator(noGestures.iterator())).times(3);
 
         expect(focusWrapper.getAndClearFocusLost()).andReturn(false).atLeastOnce();
+
+        expect(characterWrapper.getCharacterEvents()).andReturn(Iterators.peekingIterator(noCharacters.iterator()))
+                .times(3);
 
         replay(mocks);
 
@@ -122,17 +150,24 @@ public class TestPhysicalLayer {
         keyboardWrapper.init();
         mouseWrapper.init();
         controllerWrapper.init();
+        gestureWrapper.init();
         focusWrapper.init();
+        characterWrapper.init();
 
-        expect(keyboardWrapper.getEvents()).andReturn(adau);
-        expect(keyboardWrapper.getEvents()).andReturn(adau);
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
+        expect(keyboardWrapper.getKeyEvents()).andReturn(adau);
+        expect(keyboardWrapper.getKeyEvents()).andReturn(adau);
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
 
-        expect(mouseWrapper.getEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(4);
-        expect(controllerWrapper.getEvents()).andReturn(Iterators.peekingIterator(nothing.iterator())).times(4);
+        expect(mouseWrapper.getMouseEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(4);
+        expect(controllerWrapper.getControllerEvents()).andReturn(Iterators.peekingIterator(nothing.iterator()))
+                .times(4);
+        expect(gestureWrapper.getGestureEvents()).andReturn(Iterators.peekingIterator(noGestures.iterator())).times(4);
 
         expect(focusWrapper.getAndClearFocusLost()).andReturn(false).times(2);
+
+        expect(characterWrapper.getCharacterEvents()).andReturn(Iterators.peekingIterator(noCharacters.iterator()))
+                .times(4);
 
         replay(mocks);
 
@@ -161,15 +196,22 @@ public class TestPhysicalLayer {
     public void testKeyboardBasic3() throws Exception {
         keyboardWrapper.init();
         mouseWrapper.init();
-        focusWrapper.init();
         controllerWrapper.init();
+        gestureWrapper.init();
+        focusWrapper.init();
+        characterWrapper.init();
 
         final PeekingIterator<KeyEvent> keyIterator = Iterators.peekingIterator(AdownBdown.iterator());
 
-        expect(keyboardWrapper.getEvents()).andReturn(keyIterator).times(4);
-        expect(mouseWrapper.getEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(4);
-        expect(controllerWrapper.getEvents()).andReturn(Iterators.peekingIterator(nothing.iterator())).times(4);
+        expect(keyboardWrapper.getKeyEvents()).andReturn(keyIterator).times(4);
+        expect(mouseWrapper.getMouseEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(4);
+        expect(controllerWrapper.getControllerEvents()).andReturn(Iterators.peekingIterator(nothing.iterator()))
+                .times(4);
+        expect(gestureWrapper.getGestureEvents()).andReturn(Iterators.peekingIterator(noGestures.iterator())).times(4);
         expect(focusWrapper.getAndClearFocusLost()).andReturn(false).times(2);
+
+        expect(characterWrapper.getCharacterEvents()).andReturn(Iterators.peekingIterator(noCharacters.iterator()))
+                .times(4);
 
         replay(mocks);
 
@@ -200,13 +242,21 @@ public class TestPhysicalLayer {
 
         keyboardWrapper.init();
         mouseWrapper.init();
-        focusWrapper.init();
         controllerWrapper.init();
+        gestureWrapper.init();
+        focusWrapper.init();
+        characterWrapper.init();
 
-        expect(keyboardWrapper.getEvents()).andReturn(iter).atLeastOnce();
-        expect(mouseWrapper.getEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).atLeastOnce();
-        expect(controllerWrapper.getEvents()).andReturn(Iterators.peekingIterator(nothing.iterator())).atLeastOnce();
+        expect(keyboardWrapper.getKeyEvents()).andReturn(iter).atLeastOnce();
+        expect(mouseWrapper.getMouseEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).atLeastOnce();
+        expect(controllerWrapper.getControllerEvents()).andReturn(Iterators.peekingIterator(nothing.iterator()))
+                .atLeastOnce();
+        expect(gestureWrapper.getGestureEvents()).andReturn(Iterators.peekingIterator(noGestures.iterator()))
+                .atLeastOnce();
         expect(focusWrapper.getAndClearFocusLost()).andReturn(false).atLeastOnce();
+
+        expect(characterWrapper.getCharacterEvents()).andReturn(Iterators.peekingIterator(noCharacters.iterator()))
+                .atLeastOnce();
 
         replay(mocks);
 
@@ -219,13 +269,21 @@ public class TestPhysicalLayer {
 
         keyboardWrapper.init();
         mouseWrapper.init();
-        focusWrapper.init();
         controllerWrapper.init();
+        gestureWrapper.init();
+        focusWrapper.init();
+        characterWrapper.init();
 
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator())).atLeastOnce();
-        expect(mouseWrapper.getEvents()).andReturn(iter).atLeastOnce();
-        expect(controllerWrapper.getEvents()).andReturn(Iterators.peekingIterator(nothing.iterator())).atLeastOnce();
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator())).atLeastOnce();
+        expect(mouseWrapper.getMouseEvents()).andReturn(iter).atLeastOnce();
+        expect(controllerWrapper.getControllerEvents()).andReturn(Iterators.peekingIterator(nothing.iterator()))
+                .atLeastOnce();
+        expect(gestureWrapper.getGestureEvents()).andReturn(Iterators.peekingIterator(noGestures.iterator()))
+                .atLeastOnce();
         expect(focusWrapper.getAndClearFocusLost()).andReturn(false).atLeastOnce();
+
+        expect(characterWrapper.getCharacterEvents()).andReturn(Iterators.peekingIterator(noCharacters.iterator()))
+                .atLeastOnce();
 
         replay(mocks);
 
@@ -236,14 +294,21 @@ public class TestPhysicalLayer {
     public void testLostFocus1() throws Exception {
         keyboardWrapper.init();
         mouseWrapper.init();
-        focusWrapper.init();
         controllerWrapper.init();
+        gestureWrapper.init();
+        focusWrapper.init();
+        characterWrapper.init();
 
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(Adown.iterator()));
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
-        expect(mouseWrapper.getEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(2);
-        expect(controllerWrapper.getEvents()).andReturn(Iterators.peekingIterator(nothing.iterator())).times(2);
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(Adown.iterator()));
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
+        expect(mouseWrapper.getMouseEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(2);
+        expect(controllerWrapper.getControllerEvents()).andReturn(Iterators.peekingIterator(nothing.iterator()))
+                .times(2);
+        expect(gestureWrapper.getGestureEvents()).andReturn(Iterators.peekingIterator(noGestures.iterator())).times(2);
         expect(focusWrapper.getAndClearFocusLost()).andReturn(true);
+
+        expect(characterWrapper.getCharacterEvents()).andReturn(Iterators.peekingIterator(noCharacters.iterator()))
+                .times(2);
 
         replay(mocks);
 
@@ -265,16 +330,22 @@ public class TestPhysicalLayer {
     public void testLostFocus2() throws Exception {
         keyboardWrapper.init();
         mouseWrapper.init();
-        focusWrapper.init();
         controllerWrapper.init();
+        gestureWrapper.init();
+        focusWrapper.init();
+        characterWrapper.init();
 
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(Adown.iterator()));
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
-        expect(mouseWrapper.getEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(3);
-        expect(controllerWrapper.getEvents()).andReturn(Iterators.peekingIterator(nothing.iterator())).times(3);
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(Adown.iterator()));
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator()));
+        expect(mouseWrapper.getMouseEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(3);
+        expect(controllerWrapper.getControllerEvents()).andReturn(Iterators.peekingIterator(nothing.iterator()))
+                .times(3);
+        expect(gestureWrapper.getGestureEvents()).andReturn(Iterators.peekingIterator(noGestures.iterator())).times(3);
         expect(focusWrapper.getAndClearFocusLost()).andReturn(false);
         expect(focusWrapper.getAndClearFocusLost()).andReturn(true);
+        expect(characterWrapper.getCharacterEvents()).andReturn(Iterators.peekingIterator(noCharacters.iterator()))
+                .times(3);
 
         replay(mocks);
 
@@ -301,15 +372,21 @@ public class TestPhysicalLayer {
     public void testLostFocus3() throws Exception {
         keyboardWrapper.init();
         mouseWrapper.init();
-        focusWrapper.init();
         controllerWrapper.init();
+        gestureWrapper.init();
+        focusWrapper.init();
+        characterWrapper.init();
 
-        expect(keyboardWrapper.getEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator())).times(3);
-        expect(mouseWrapper.getEvents()).andReturn(Iterators.peekingIterator(buttonDown.iterator()));
-        expect(mouseWrapper.getEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(2);
-        expect(controllerWrapper.getEvents()).andReturn(Iterators.peekingIterator(nothing.iterator())).times(3);
+        expect(keyboardWrapper.getKeyEvents()).andReturn(Iterators.peekingIterator(noKeys.iterator())).times(3);
+        expect(mouseWrapper.getMouseEvents()).andReturn(Iterators.peekingIterator(buttonDown.iterator()));
+        expect(mouseWrapper.getMouseEvents()).andReturn(Iterators.peekingIterator(noMice.iterator())).times(2);
+        expect(controllerWrapper.getControllerEvents()).andReturn(Iterators.peekingIterator(nothing.iterator()))
+                .times(3);
+        expect(gestureWrapper.getGestureEvents()).andReturn(Iterators.peekingIterator(noGestures.iterator())).times(3);
         expect(focusWrapper.getAndClearFocusLost()).andReturn(false);
         expect(focusWrapper.getAndClearFocusLost()).andReturn(true);
+        expect(characterWrapper.getCharacterEvents()).andReturn(Iterators.peekingIterator(noCharacters.iterator()))
+                .times(3);
 
         replay(mocks);
 
@@ -334,9 +411,10 @@ public class TestPhysicalLayer {
         assertEquals("mb up", ButtonState.UP, is.getMouseState().getButtonState(MouseButton.LEFT));
     }
 
-    private static class NeverEndingKeyIterator extends AbstractIterator<KeyEvent> implements PeekingIterator<KeyEvent> {
-        final KeyEvent aUp = new KeyEvent(Key.A, KeyState.UP, 'a');
-        final KeyEvent aDown = new KeyEvent(Key.A, KeyState.DOWN, 'a');
+    private static class NeverEndingKeyIterator extends AbstractIterator<KeyEvent>
+            implements PeekingIterator<KeyEvent> {
+        final KeyEvent aUp = new KeyEvent(Key.A, KeyState.UP);
+        final KeyEvent aDown = new KeyEvent(Key.A, KeyState.DOWN);
 
         int count = 0;
 
@@ -352,8 +430,8 @@ public class TestPhysicalLayer {
         }
     }
 
-    private static class NeverEndingMouseIterator extends AbstractIterator<MouseState> implements
-            PeekingIterator<MouseState> {
+    private static class NeverEndingMouseIterator extends AbstractIterator<MouseState>
+            implements PeekingIterator<MouseState> {
         final MouseState m1 = new MouseState(0, 0, 0, 0, 0, null, null);
         final MouseState m2 = new MouseState(0, 1, 2, 0, 0, null, null);
 

@@ -1,22 +1,22 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ardor3d.extension.ui.event.ActionEvent;
 import com.ardor3d.extension.ui.event.ActionListener;
 import com.ardor3d.extension.ui.model.DefaultSliderModel;
 import com.ardor3d.extension.ui.model.SliderModel;
-import com.google.common.collect.Lists;
 
 /**
  * A widget allowing display and control of a choice from a range of values.
@@ -33,7 +33,7 @@ public class UISlider extends UIContainer {
     private final UISliderKnob _knob;
 
     /** List of action listeners notified when this slider is changed. */
-    private final List<ActionListener> _listeners = Lists.newArrayList();
+    private final List<ActionListener> _listeners = new ArrayList<>();
 
     /** The orientation of this slider knob. */
     private final Orientation _orientation;
@@ -43,7 +43,7 @@ public class UISlider extends UIContainer {
 
     /**
      * create a slider widget with a default range of [0,100]. Initial value is 50.
-     * 
+     *
      * @param orientation
      *            the orientation of the slider (Orientation.Horizontal or Orientation.Vertical)
      */
@@ -53,7 +53,7 @@ public class UISlider extends UIContainer {
 
     /**
      * create a slider widget with a default range of [minValue,maxOffset] and the given initialValue.
-     * 
+     *
      * @param orientation
      *            the orientation of the slider (Orientation.Horizontal or Orientation.Vertical)
      * @param minValue
@@ -66,7 +66,8 @@ public class UISlider extends UIContainer {
     public UISlider(final Orientation orientation, final int minValue, final int maxValue, final int initialValue) {
         assert orientation != null : "orientation must not be null.";
         assert minValue <= maxValue : "minValue must be less than maxValue.";
-        assert minValue <= initialValue && initialValue <= maxValue : "initialValue must be between minValue and maxValue.";
+        assert minValue <= initialValue
+                && initialValue <= maxValue : "initialValue must be between minValue and maxValue.";
 
         // Set our orientation
         _orientation = orientation;
@@ -150,7 +151,7 @@ public class UISlider extends UIContainer {
 
     /**
      * Set the value on this slider
-     * 
+     *
      * @param value
      *            the new value. Clamps between min and max values.
      */
@@ -164,9 +165,10 @@ public class UISlider extends UIContainer {
      */
     private void updateKnob() {
         if ((float) (_model.getMaxValue() - _model.getMinValue()) != 0) {
-            _knob.setPosition(_model.getCurrentValue() / (float) (_model.getMaxValue() - _model.getMinValue()));
+            _knob.setPosition((_model.getCurrentValue() - _model.getMinValue())
+                    / (float) (_model.getMaxValue() - _model.getMinValue()));
         } else {
-            _knob.setPosition(_model.getMinValue());
+            _knob.setPosition(0);
         }
     }
 
@@ -196,7 +198,7 @@ public class UISlider extends UIContainer {
 
     /**
      * Add the specified listener to this slider's list of listeners notified when it has changed.
-     * 
+     *
      * @param listener
      *            the listener to add
      */
@@ -206,7 +208,7 @@ public class UISlider extends UIContainer {
 
     /**
      * Remove a listener from this slider's list of listeners.
-     * 
+     *
      * @param listener
      *            the listener to remove
      * @return true if the listener was removed.
@@ -220,7 +222,8 @@ public class UISlider extends UIContainer {
      */
     void knobReleased() {
         if (_snapToValues) {
-            setValue(Math.round(_knob.getPosition() * (_model.getMaxValue() - _model.getMinValue())));
+            setValue(Math.round(_knob.getPosition() * (_model.getMaxValue() - _model.getMinValue()))
+                    + _model.getMinValue());
         }
     }
 

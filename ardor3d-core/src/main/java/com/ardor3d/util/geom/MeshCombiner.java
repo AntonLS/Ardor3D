@@ -1,17 +1,19 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.util.geom;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
@@ -26,15 +28,14 @@ import com.ardor3d.scenegraph.Mesh;
 import com.ardor3d.scenegraph.MeshData;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.Spatial;
-import com.ardor3d.scenegraph.visitor.Visitor;
+import com.ardor3d.util.Ardor3dException;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
 /**
  * Utility for combining multiple Meshes into a single Mesh. Note that you generally will want to combine Mesh objects
  * that have the same render states.
- * 
+ *
  * XXX: should add in a way to combine only meshes with similar renderstates<br>
  * XXX: Might be able to reduce memory usage in the singular case where all sources do not have indices defined
  * (arrays).<br>
@@ -52,7 +53,7 @@ public class MeshCombiner {
      * vertices and texcoords that have the same tuple width. It is possible to merge Mesh objects together that have
      * mismatched normals/colors/etc. (eg. one with colors and one without.)
      * </p>
-     * 
+     *
      * @param source
      *            our source node
      * @return the combined Mesh.
@@ -62,13 +63,10 @@ public class MeshCombiner {
     }
 
     public final static Mesh combine(final Spatial source, final MeshCombineLogic logic) {
-        final List<Mesh> sources = Lists.newArrayList();
-        source.acceptVisitor(new Visitor() {
-            @Override
-            public void visit(final Spatial spatial) {
-                if (spatial instanceof Mesh) {
-                    sources.add((Mesh) spatial);
-                }
+        final List<Mesh> sources = new ArrayList<>();
+        source.acceptVisitor((final Spatial spatial) -> {
+            if (spatial instanceof Mesh) {
+                sources.add((Mesh) spatial);
             }
         }, true);
 
@@ -79,20 +77,20 @@ public class MeshCombiner {
      * Combine the given array of Mesh objects into a single Mesh. All Mesh objects must have vertices and texcoords
      * that have the same tuple width. It is possible to merge Mesh objects together that have mismatched
      * normals/colors/etc. (eg. one with colors and one without.)
-     * 
+     *
      * @param sources
      *            our Mesh objects to combine.
      * @return the combined Mesh.
      */
     public final static Mesh combine(final Mesh... sources) {
-        return combine(Lists.newArrayList(sources));
+        return combine(Arrays.asList(sources));
     }
 
     /**
      * Combine the given collection of Mesh objects into a single Mesh. All Mesh objects must have vertices and
      * texcoords that have the same tuple width. It is possible to merge Mesh objects together that have mismatched
      * normals/colors/etc. (eg. one with colors and one without.)
-     * 
+     *
      * @param sources
      *            our collection of Mesh objects to combine.
      * @return the combined Mesh.
@@ -128,7 +126,7 @@ public class MeshCombiner {
         protected EnumMap<StateType, RenderState> states = null;
         protected MeshData data = new MeshData();
         protected BoundingVolume volumeType = null;
-        protected List<Mesh> sources = Lists.newArrayList();
+        protected List<Mesh> sources = new ArrayList<>();
         private FloatBufferData vertices;
         private FloatBufferData colors;
         private FloatBufferData normals;
@@ -236,11 +234,12 @@ public class MeshCombiner {
             normals = useNormals ? new FloatBufferData(totalVertices * 3, 3) : null;
             data.setNormalCoords(normals);
 
-            texCoordsList = Lists.newArrayListWithCapacity(maxTextures);
+            texCoordsList = new ArrayList<>(maxTextures);
             for (int i = 0; i < maxTextures; i++) {
-                texCoordsList.add(new FloatBufferData(totalVertices * texCoords, texCoords));
+                final FloatBufferData uvs = new FloatBufferData(totalVertices * texCoords, texCoords);
+                texCoordsList.add(uvs);
+                data.setTextureCoords(uvs, i);
             }
-            data.setTextureCoords(useTextures ? texCoordsList : null);
         }
 
         public void addSource(final Mesh mesh) {
@@ -286,14 +285,14 @@ public class MeshCombiner {
             }
 
             // check for texcoord usage
-            if (md.getNumberOfUnits() > 0) {
+            if (md.getMaxTextureUnitUsed() >= 0) {
                 if (!useTextures) {
                     useTextures = true;
                     texCoords = md.getTextureCoords(0).getValuesPerTuple();
                 } else if (md.getTextureCoords(0) != null && texCoords != md.getTextureCoords(0).getValuesPerTuple()) {
                     throw new IllegalArgumentException("all MeshData objects with texcoords must use same tuple size.");
                 }
-                maxTextures = Math.max(maxTextures, md.getNumberOfUnits());
+                maxTextures = Math.max(maxTextures, md.getMaxTextureUnitUsed() + 1);
             }
         }
     }
@@ -312,8 +311,8 @@ class IndexCombiner {
             // walk through each section
             for (int i = 0, maxI = source.getSectionCount(); i < maxI; i++) {
                 // make an int array and populate it.
-                final int size = source.getIndexLengths() != null ? source.getIndexLengths()[i] : source
-                        .getVertexCount();
+                final int size = source.getIndexLengths() != null ? source.getIndexLengths()[i]
+                        : source.getVertexCount();
                 final int[] indices = new int[size];
                 for (int j = 0; j < size; j++) {
                     indices[j] = j + vertexOffset + offset;
@@ -338,8 +337,8 @@ class IndexCombiner {
             // walk through each section
             for (int i = 0, maxI = source.getSectionCount(); i < maxI; i++) {
                 // make an int array and populate it.
-                final int size = source.getIndexLengths() != null ? source.getIndexLengths()[i] : source.getIndices()
-                        .capacity();
+                final int size = source.getIndexLengths() != null ? source.getIndexLengths()[i]
+                        : source.getIndices().capacity();
                 final int[] indices = new int[size];
                 for (int j = 0; j < size; j++) {
                     indices[j] = ib.get(j + offset) + vertexOffset;
@@ -358,15 +357,14 @@ class IndexCombiner {
     }
 
     public void saveTo(final MeshData data) {
-        final List<IntBuffer> sections = Lists.newArrayList();
-        final List<IndexMode> modes = Lists.newArrayList();
+        final List<IntBuffer> sections = new ArrayList<>();
+        final List<IndexMode> modes = new ArrayList<>();
         int max = 0;
         // walk through index modes and combine those we can.
         for (final IndexMode mode : sectionMap.keySet()) {
             final Collection<int[]> sources = sectionMap.get(mode);
             switch (mode) {
                 case Triangles:
-                case Quads:
                 case Lines:
                 case Points: {
                     // we can combine these as-is to our heart's content.
@@ -385,7 +383,6 @@ class IndexCombiner {
                     break;
                 }
                 case TriangleFan:
-                case QuadStrip:
                 case LineLoop:
                 case LineStrip: {
                     // these have to be kept, as is.
@@ -426,6 +423,8 @@ class IndexCombiner {
                     modes.add(mode);
                     break;
                 }
+                default:
+                    throw new Ardor3dException("Unhandled IndexMode: " + mode);
             }
         }
 

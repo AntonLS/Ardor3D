@@ -1,24 +1,22 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.terrain.client;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.concurrent.TimeUnit;
 
 import com.ardor3d.bounding.BoundingBox;
 import com.ardor3d.extension.terrain.util.AbstractBresenhamTracer;
@@ -27,37 +25,25 @@ import com.ardor3d.extension.terrain.util.DoubleBufferedList;
 import com.ardor3d.extension.terrain.util.Region;
 import com.ardor3d.intersection.IntersectionRecord;
 import com.ardor3d.intersection.Pickable;
-import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Ray3;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.renderer.Camera;
-import com.ardor3d.renderer.ContextCapabilities;
-import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.Renderer;
 import com.ardor3d.renderer.queue.RenderBucketType;
 import com.ardor3d.renderer.state.BlendState;
 import com.ardor3d.renderer.state.CullState;
-import com.ardor3d.renderer.state.GLSLShaderDataLogic;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
-import com.ardor3d.renderer.state.MaterialState;
-import com.ardor3d.renderer.state.MaterialState.MaterialFace;
 import com.ardor3d.renderer.state.TextureState;
-import com.ardor3d.scenegraph.Mesh;
+import com.ardor3d.scenegraph.MeshData;
 import com.ardor3d.scenegraph.Node;
 import com.ardor3d.scenegraph.event.DirtyType;
-import com.ardor3d.scenegraph.hint.DataMode;
 import com.ardor3d.util.resource.ResourceLocatorTool;
-import com.google.common.collect.Lists;
-import com.google.common.io.InputSupplier;
+import com.ardor3d.util.resource.SimpleResourceLocator;
 
 /**
  * An implementation of geometry clipmapping
  */
-public class Terrain extends Node implements Pickable {
-    /** The Constant logger. */
-    private static final Logger logger = Logger.getLogger(Terrain.class.getName());
-
+public class Terrain extends Node implements Pickable, Runnable {
     /** Our picker. */
     private ClipmapTerrainPicker _picker = null;
 
@@ -69,29 +55,26 @@ public class Terrain extends Node implements Pickable {
 
     private final BlendState blendState;
 
-    private boolean _initialized = false;
-
-    /** Shader for rendering clipmap geometry with morphing. */
-    private GLSLShaderObjectsState _geometryClipmapShader;
-
     /** Reference to the texture clipmap */
-    private final List<TextureClipmap> _textureClipmaps = Lists.newArrayList();
+    private final List<TextureClipmap> _textureClipmaps = new ArrayList<>();
 
     /** Reference to normal map */
     private TextureClipmap _normalClipmap;
-    private int _normalUnit = 5;
+    private int _normalUnit;
 
     private final Vector3 transformedFrustumPos = new Vector3();
 
     private final DoubleBufferedList<Region> mailBox = new DoubleBufferedList<Region>();
 
-    private InputSupplier<? extends InputStream> vertexShader;
-    private InputSupplier<? extends InputStream> pixelShader;
-
     /** Timers for mailbox updates */
     private long oldTime = 0;
     private long updateTimer = 0;
     private final long updateThreashold = 300;
+
+    protected boolean runCacheThread = true;
+    protected Thread cacheThread;
+
+    protected final int CACHE_UPDATE_SLEEP = 250;
 
     final TextureState clipTextureState = new TextureState();
 
@@ -116,18 +99,13 @@ public class Terrain extends Node implements Pickable {
         cs.setCullFace(CullState.Face.Back);
         setRenderState(cs);
 
-        final MaterialState materialState = new MaterialState();
-        materialState.setAmbient(MaterialFace.FrontAndBack, new ColorRGBA(1, 1, 1, 1));
-        materialState.setDiffuse(MaterialFace.FrontAndBack, new ColorRGBA(1, 1, 1, 1));
-        materialState.setSpecular(MaterialFace.FrontAndBack, new ColorRGBA(1, 1, 1, 1));
-        materialState.setShininess(MaterialFace.FrontAndBack, 64.0f);
-        setRenderState(materialState);
-
         blendState = new BlendState();
         blendState.setBlendEnabled(true);
         blendState.setSourceFunction(BlendState.SourceFunction.SourceAlpha);
         blendState.setDestinationFunction(BlendState.DestinationFunction.OneMinusSourceAlpha);
         setRenderState(blendState);
+
+        setRenderState(clipTextureState);
 
         // getSceneHints().setLightCombineMode(LightCombineMode.Off);
 
@@ -142,34 +120,23 @@ public class Terrain extends Node implements Pickable {
                 final ClipmapLevel clipmap = new ClipmapLevel(i, camera, clipSideSize, heightScale, cache);
                 _clips.add(clipmap);
                 attachChild(clipmap);
-
-                clipmap.getSceneHints().setDataMode(DataMode.Arrays);
-
-                // clipmap.getSceneHints().setDataMode(DataMode.VBOInterleaved);
-                // final FloatBufferData interleavedData = new FloatBufferData();
-                // interleavedData.setVboAccessMode(VBOAccessMode.DynamicDraw);
-                // clipmap.getMeshData().setInterleavedData(interleavedData);
-
-                // clipmap.getSceneHints().setDataMode(DataMode.VBO);
-                // clipmap.getMeshData().getVertexCoords().setVboAccessMode(VBOAccessMode.DynamicDraw);
-                // clipmap.getMeshData().getIndices().setVboAccessMode(VBOAccessMode.DynamicDraw);
             }
         } catch (final Exception ex) {
             ex.printStackTrace();
         }
 
-        vertexShader = new UrlInputSupplier(ResourceLocatorTool.getClassPathResource(Terrain.class,
-                "com/ardor3d/extension/terrain/texturedGeometryClipmapShader.vert"));
-        pixelShader = new UrlInputSupplier(ResourceLocatorTool.getClassPathResource(Terrain.class,
-                "com/ardor3d/extension/terrain/texturedGeometryClipmapShader.frag"));
-
         // setScale(terrainConfiguration.getScale());
         // TODO: hack. unify scale handling over cache etc
         setScale(terrainConfiguration.getScale().getX(), 1, terrainConfiguration.getScale().getZ());
         setHeightRange(terrainConfiguration.getHeightRangeMin(), terrainConfiguration.getHeightRangeMax());
+
+        setProperty("clipSideSize", _clipSideSize);
+        setNormalUnit(5);
+
+        this.updateWorldRenderStates(true);
     }
 
-    private final List<Long> timers = Lists.newArrayList();
+    private final List<Long> timers = new ArrayList<>();
 
     @Override
     protected void updateChildren(final double time) {
@@ -229,70 +196,103 @@ public class Terrain extends Node implements Pickable {
             }
         }
 
-        for (int i = _clips.size() - 1; i >= _visibleLevels; i--) {
-            _clips.get(i).getMeshData().getVertexCoords().setNeedsRefresh(true);
-            _clips.get(i).getMeshData().getIndices().setNeedsRefresh(true);
+        if (runCacheThread && cacheThread == null) {
+            cacheThread = new Thread(this, "TerrainCacheUpdater");
+            cacheThread.setDaemon(true);
+            cacheThread.start();
+        }
+    }
+
+    @Override
+    public void run() {
+        while (runCacheThread) {
+            try {
+                TimeUnit.MILLISECONDS.sleep(CACHE_UPDATE_SLEEP);
+            } catch (final InterruptedException e) {
+            }
+
+            // check clipmaps
+            for (int i = _clips.size(); --i >= 0;) {
+                _clips.get(i).getCache().checkForUpdates();
+            }
+
+            // check texture clips
+            for (int i = 0; i < _textureClipmaps.size(); i++) {
+                final TextureClipmap cm = _textureClipmaps.get(i);
+                if (!cm.isEnabled()) {
+                    continue;
+                }
+                final List<TextureCache> list = cm.getCacheList();
+                for (int j = list.size(); --j >= 0;) {
+                    list.get(j).checkForUpdates();
+                }
+            }
+
+            // check normalmap, if there is one
+            if (_normalClipmap != null && _normalClipmap.isEnabled()) {
+                final List<TextureCache> list = _normalClipmap.getCacheList();
+                for (int j = list.size(); --j >= 0;) {
+                    list.get(j).checkForUpdates();
+                }
+            }
         }
     }
 
     @Override
     public void draw(final Renderer r) {
-        updateShader(r);
+        // Figure out where we are
+        getWorldTransform().applyInverse(_terrainCamera.getLocation(), transformedFrustumPos);
+        setProperty("eyePosition", transformedFrustumPos);
 
-        boolean first = true;
+        // tell all of our clipmaps and let them update as needed.
+        for (int i = 0, maxI = _textureClipmaps.size(); i < maxI; i++) {
+            final TextureClipmap textureClipmap = _textureClipmaps.get(i);
+            textureClipmap.update(r, transformedFrustumPos);
+        }
+
+        // If we have a normalmap clip, update and grab the texture for drawing later.
         if (_normalClipmap != null) {
+            _normalClipmap.update(r, transformedFrustumPos);
             clipTextureState.setTexture(_normalClipmap.getTexture(), _normalUnit);
         }
-        for (final TextureClipmap textureClipmap : _textureClipmaps) {
-            clipTextureState.setTexture(textureClipmap.getTexture());
-            if (first) {
-                blendState.setEnabled(false);
-                first = false;
-            } else {
-                blendState.setEnabled(true);
+
+        boolean firstDrawnClip = true;
+        // Walk through our clipmaps
+        for (int i = 0, maxI = _textureClipmaps.size(); i < maxI; i++) {
+            final TextureClipmap textureClipmap = _textureClipmaps.get(i);
+
+            // if this clipmap is disabled, ignore it
+            if (!textureClipmap.isEnabled()) {
+                continue;
             }
 
+            // prepare this clipmap for drawing
+            textureClipmap.prepareToDrawClips(this);
+
+            // grab the clipmap's texture for drawing
+            clipTextureState.setTexture(textureClipmap.getTexture());
+
+            // If we're the first clip to draw, we won't blend
+            blendState.setEnabled(!firstDrawnClip);
+            firstDrawnClip = false;
+
+            // If we plan to draw more than one clipmap, push our buckets so we can render just this level independent
+            // of anything else.
             if (_textureClipmaps.size() > 1) {
                 r.getQueue().pushBuckets();
             }
 
-            for (int i = _clips.size() - 1; i >= 0; i--) {
-                final ClipmapLevel clip = _clips.get(i);
-                clip.setRenderState(clipTextureState);
-            }
-
-            if (_textureClipmaps.size() > 1) {
-                _geometryClipmapShader.setUniform("scale", 1f / textureClipmap.getScale());
-                _geometryClipmapShader.setUniform("textureSize", (float) textureClipmap.getTextureSize());
-                _geometryClipmapShader.setUniform("texelSize", 1f / textureClipmap.getTextureSize());
-                _geometryClipmapShader.setUniform("levels", (float) textureClipmap.getTextureLevels());
-                _geometryClipmapShader.setUniform("validLevels", (float) textureClipmap.getValidLevels() - 1);
-                _geometryClipmapShader.setUniform("showDebug", textureClipmap.isShowDebug() ? 1.0f : 0.0f);
-                _geometryClipmapShader.setNeedsRefresh(true);
-            }
-
-            blendState.setNeedsRefresh(true);
-            this.updateWorldRenderStates(true);
-
-            if (!_initialized) {
-                for (int i = _clips.size() - 1; i >= _visibleLevels; i--) {
-                    final ClipmapLevel clip = _clips.get(i);
-
-                    clip.getMeshData().getIndices().limit(clip.getMeshData().getIndices().capacity());
-                }
-
-                _initialized = true;
-            }
-
             // draw levels from coarse to fine.
-            for (int i = _clips.size() - 1; i >= _visibleLevels; i--) {
-                final ClipmapLevel clip = _clips.get(i);
+            for (int j = _clips.size() - 1; j >= _visibleLevels; j--) {
+                final ClipmapLevel clip = _clips.get(j);
 
                 if (clip.getStripIndex() > 0) {
                     clip.draw(r);
                 }
             }
 
+            // Again, if we plan to draw more than one, we pushed our buckets, so render the current buckets and restore
+            // what was in them previously.
             if (_textureClipmaps.size() > 1) {
                 r.renderBuckets();
                 r.getQueue().popBuckets();
@@ -345,12 +345,15 @@ public class Terrain extends Node implements Pickable {
                 for (int i = regionList.size() - 1; i >= 0; i--) {
                     final Region region = regionList.get(i);
                     final ClipmapLevel clip = _clips.get(region.getLevel());
-                    final FloatBuffer vertices = clip.getMeshData().getVertexBuffer();
+                    final MeshData meshData = clip.getMeshData();
+                    final FloatBuffer vertices = meshData.getVertexBuffer();
                     final int vertexDistance = clip.getVertexDistance();
 
                     clip.getCache().updateRegion(vertices, region.getX() / vertexDistance,
                             region.getY() / vertexDistance, region.getWidth() / vertexDistance,
                             region.getHeight() / vertexDistance);
+
+                    meshData.markBufferDirty(MeshData.KEY_VertexCoords);
                 }
             }
             updateTimer %= updateThreashold;
@@ -396,83 +399,6 @@ public class Terrain extends Node implements Pickable {
         clearDirty(DirtyType.Bounding);
     }
 
-    /**
-     * Initialize/Update shaders
-     */
-    public void updateShader(final Renderer r) {
-        if (_geometryClipmapShader != null) {
-            getWorldTransform().applyInverse(_terrainCamera.getLocation(), transformedFrustumPos);
-            _geometryClipmapShader.setUniform("eyePosition", transformedFrustumPos);
-            for (final TextureClipmap textureClipmap : _textureClipmaps) {
-                textureClipmap.update(r, transformedFrustumPos);
-            }
-            if (_normalClipmap != null) {
-                _normalClipmap.update(r, transformedFrustumPos);
-            }
-
-            return;
-        }
-
-        reloadShader();
-    }
-
-    public void reloadShader() {
-        final ContextCapabilities caps = ContextManager.getCurrentContext().getCapabilities();
-        if (caps.isGLSLSupported()) {
-            _geometryClipmapShader = new GLSLShaderObjectsState();
-            try {
-                _geometryClipmapShader.setVertexShader(vertexShader.getInput());
-                _geometryClipmapShader.setFragmentShader(pixelShader.getInput());
-            } catch (final IOException ex) {
-                Terrain.logger
-                        .logp(Level.SEVERE, getClass().getName(), "init(Renderer)", "Could not load shaders.", ex);
-            }
-
-            _geometryClipmapShader.setUniform("texture", 0);
-            _geometryClipmapShader.setUniform("clipSideSize", (float) _clipSideSize);
-
-            if (!_textureClipmaps.isEmpty()) {
-                final TextureClipmap textureClipmap = _textureClipmaps.get(0);
-                _geometryClipmapShader.setUniform("scale", 1f / textureClipmap.getScale());
-                _geometryClipmapShader.setUniform("textureSize", (float) textureClipmap.getTextureSize());
-                _geometryClipmapShader.setUniform("texelSize", 1f / textureClipmap.getTextureSize());
-
-                _geometryClipmapShader.setUniform("levels", (float) textureClipmap.getTextureLevels());
-                _geometryClipmapShader.setUniform("validLevels", (float) textureClipmap.getValidLevels() - 1);
-                _geometryClipmapShader.setUniform("minLevel", 0f);
-
-                _geometryClipmapShader.setUniform("showDebug", textureClipmap.isShowDebug() ? 1.0f : 0.0f);
-            }
-
-            _geometryClipmapShader.setShaderDataLogic(new GLSLShaderDataLogic() {
-                public void applyData(final GLSLShaderObjectsState shader, final Mesh mesh, final Renderer renderer) {
-                    if (mesh instanceof ClipmapLevel) {
-                        shader.setUniform("vertexDistance", (float) ((ClipmapLevel) mesh).getVertexDistance());
-                    }
-                }
-            });
-
-            applyToClips();
-
-            for (final TextureClipmap textureClipmap : _textureClipmaps) {
-                textureClipmap.setShaderState(_geometryClipmapShader);
-            }
-
-            if (_normalClipmap != null) {
-                _normalClipmap.setShaderState(_geometryClipmapShader);
-            }
-
-            updateWorldRenderStates(false);
-        }
-    }
-
-    protected void applyToClips() {
-        for (int i = _clips.size() - 1; i >= 0; i--) {
-            final ClipmapLevel clip = _clips.get(i);
-            clip.setRenderState(_geometryClipmapShader);
-        }
-    }
-
     public void regenerate(final Renderer renderer) {
         for (int i = _clips.size() - 1; i >= 0; i--) {
             if (!_clips.get(i).isReady()) {
@@ -495,11 +421,6 @@ public class Terrain extends Node implements Pickable {
                 // All other levels i have the level i-1 nested in.
                 _clips.get(i).updateIndices(_clips.get(i - 1));
             }
-        }
-
-        for (int i = _clips.size() - 1; i >= _visibleLevels; i--) {
-            _clips.get(i).getMeshData().getVertexCoords().setNeedsRefresh(true);
-            _clips.get(i).getMeshData().getIndices().setNeedsRefresh(true);
         }
 
         for (final TextureClipmap textureClipmap : _textureClipmaps) {
@@ -554,22 +475,14 @@ public class Terrain extends Node implements Pickable {
         return _textureClipmaps;
     }
 
-    public GLSLShaderObjectsState getGeometryClipmapShader() {
-        return _geometryClipmapShader;
-    }
-
-    public void setGeometryClipmapShader(final GLSLShaderObjectsState shaderState) {
-        _geometryClipmapShader = shaderState;
-
-        applyToClips();
-
-        for (final TextureClipmap textureClipmap : _textureClipmaps) {
-            textureClipmap.setShaderState(_geometryClipmapShader);
+    public TextureClipmap findTextureClipmap(final TextureSource source) {
+        for (final TextureClipmap cm : _textureClipmaps) {
+            if (cm.getSource() == source) {
+                return cm;
+            }
         }
 
-        if (_normalClipmap != null) {
-            _normalClipmap.setShaderState(_geometryClipmapShader);
-        }
+        return null;
     }
 
     public ClipmapTerrainPicker getPicker() {
@@ -620,21 +533,13 @@ public class Terrain extends Node implements Pickable {
         return _clips;
     }
 
-    public void setVertexShader(final InputSupplier<? extends InputStream> vertexShader) {
-        this.vertexShader = vertexShader;
-    }
-
-    public void setPixelShader(final InputSupplier<? extends InputStream> pixelShader) {
-        this.pixelShader = pixelShader;
-    }
-
     public void addTextureClipmap(final TextureClipmap textureClipmap) {
         _textureClipmaps.add(textureClipmap);
     }
 
     /**
      * set the minimum (highest resolution) clipmap level visible
-     * 
+     *
      * @param level
      *            clamped to valid range
      */
@@ -653,12 +558,15 @@ public class Terrain extends Node implements Pickable {
     }
 
     /**
-     * convenience function to set minimum (highest resolution) texture clipmap level on all TextureClipmaps held by
-     * this terrain
+     * convenience function to set minimum (highest resolution) texture clipmap level on all TextureClipmaps and any
+     * NormalMap held by this terrain
      */
     public void setTextureMinVisibleLevel(final int level) {
         for (final TextureClipmap tc : _textureClipmaps) {
             tc.setMinVisibleLevel(level);
+        }
+        if (_normalClipmap != null) {
+            _normalClipmap.setMinVisibleLevel(level);
         }
     }
 
@@ -669,6 +577,16 @@ public class Terrain extends Node implements Pickable {
         return 0;
     }
 
+    /**
+     * Get height of the terrain at the given world coordinates. This height will correlate to the finest level of
+     * detail, currently valid clipmap level at the given coordinates.
+     *
+     * @param x
+     *            world x-coordinate
+     * @param z
+     *            world z-coordinate
+     * @return the height, in world coordinate
+     */
     public float getHeightAt(final double x, final double z) {
         final Vector3 heightCalc = new Vector3(x, 0, z);
         worldToLocal(heightCalc, heightCalc);
@@ -679,15 +597,7 @@ public class Terrain extends Node implements Pickable {
     }
 
     public void shutdown() {
-        for (final TextureClipmap textureClipmap : _textureClipmaps) {
-            textureClipmap.shutdown();
-        }
-        for (final ClipmapLevel terrainClipmap : _clips) {
-            terrainClipmap.shutdown();
-        }
-        if (_normalClipmap != null) {
-            _normalClipmap.shutdown();
-        }
+        runCacheThread = false;
     }
 
     public TextureState getClipTextureState() {
@@ -708,5 +618,17 @@ public class Terrain extends Node implements Pickable {
 
     public void setNormalUnit(final int unit) {
         _normalUnit = unit;
+        setProperty("normalMap", _normalUnit);
+    }
+
+    public static void addDefaultResourceLocators() {
+        try {
+            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_MATERIAL, new SimpleResourceLocator(
+                    ResourceLocatorTool.getClassPathResource(Terrain.class, "com/ardor3d/extension/terrain/material")));
+            ResourceLocatorTool.addResourceLocator(ResourceLocatorTool.TYPE_SHADER, new SimpleResourceLocator(
+                    ResourceLocatorTool.getClassPathResource(Terrain.class, "com/ardor3d/extension/terrain/shader")));
+        } catch (final URISyntaxException ex) {
+            ex.printStackTrace();
+        }
     }
 }

@@ -1,15 +1,16 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.ardor3d.extension.ui.event.ActionEvent;
@@ -22,9 +23,8 @@ import com.ardor3d.extension.ui.model.DefaultComboBoxModel;
 import com.ardor3d.extension.ui.skin.SkinningTask;
 import com.ardor3d.extension.ui.text.StyleConstants;
 import com.ardor3d.input.InputState;
-import com.ardor3d.input.MouseButton;
+import com.ardor3d.input.mouse.MouseButton;
 import com.ardor3d.scenegraph.Spatial;
-import com.google.common.collect.Lists;
 
 /**
  * A UI component that contains several possible choices, but shows only the currently selected one. Changing the
@@ -40,7 +40,7 @@ public class UIComboBox extends UIPanel {
 
     protected int _selectedIndex = 0;
 
-    private final List<SelectionListener<UIComboBox>> _listeners = Lists.newArrayList();
+    private final List<SelectionListener<UIComboBox>> _listeners = new ArrayList<>();
 
     private SkinningTask _itemSkinCallback;
 
@@ -59,6 +59,11 @@ public class UIComboBox extends UIPanel {
             @Override
             public boolean mouseReleased(final MouseButton button, final InputState state) {
                 _openButton.doClick();
+                return true;
+            }
+
+            @Override
+            public boolean mousePressed(final MouseButton button, final InputState state) {
                 return true;
             }
         };
@@ -121,7 +126,6 @@ public class UIComboBox extends UIPanel {
                 }
 
                 _valuesMenu.updateMinimumSizeFromContents();
-                _valuesMenu.pack();
                 if (_valuesMenu.getLocalComponentWidth() < UIComboBox.this.getLocalComponentWidth()) {
                     _valuesMenu.setLocalComponentWidth(UIComboBox.this.getLocalComponentWidth());
                 }

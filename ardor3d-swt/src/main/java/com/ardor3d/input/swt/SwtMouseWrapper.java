@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.input.swt;
@@ -24,13 +24,13 @@ import org.eclipse.swt.widgets.Control;
 
 import com.ardor3d.annotation.GuardedBy;
 import com.ardor3d.annotation.ThreadSafe;
-import com.ardor3d.input.ButtonState;
-import com.ardor3d.input.MouseButton;
-import com.ardor3d.input.MouseState;
-import com.ardor3d.input.MouseWrapper;
+import com.ardor3d.framework.Canvas;
+import com.ardor3d.input.mouse.ButtonState;
+import com.ardor3d.input.mouse.MouseButton;
+import com.ardor3d.input.mouse.MouseState;
+import com.ardor3d.input.mouse.MouseWrapper;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.EnumMultiset;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.PeekingIterator;
 
@@ -43,6 +43,7 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
     private final LinkedList<MouseState> _upcomingEvents = new LinkedList<MouseState>();
 
     private final Control _control;
+    private boolean _ignoreInput;
 
     @GuardedBy("this")
     private SwtMouseIterator _currentIterator = null;
@@ -51,7 +52,7 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
     private MouseState _lastState = null;
 
     private final Multiset<MouseButton> _clicks = EnumMultiset.create(MouseButton.class);
-    private final EnumMap<MouseButton, Long> _lastClickTime = Maps.newEnumMap(MouseButton.class);
+    private final EnumMap<MouseButton, Long> _lastClickTime = new EnumMap<>(MouseButton.class);
     private final EnumSet<MouseButton> _clickArmed = EnumSet.noneOf(MouseButton.class);
 
     public SwtMouseWrapper(final Control control) {
@@ -67,7 +68,7 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
         _control.addMouseWheelListener(this);
     }
 
-    public synchronized PeekingIterator<MouseState> getEvents() {
+    public synchronized PeekingIterator<MouseState> getMouseEvents() {
         expireClickEvents();
 
         if (_currentIterator == null || !_currentIterator.hasNext()) {
@@ -88,10 +89,14 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
     }
 
     public synchronized void mouseDoubleClick(final MouseEvent mouseEvent) {
-    // ignoring this. We'll handle (multi)click in a uniform way
+        // ignoring this. We'll handle (multi)click in a uniform way
     }
 
     public synchronized void mouseDown(final MouseEvent e) {
+        if (_ignoreInput) {
+            return;
+        }
+
         final MouseButton b = getButtonForEvent(e);
         if (_clickArmed.contains(b)) {
             _clicks.setCount(b, 0);
@@ -109,6 +114,10 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
     }
 
     public synchronized void mouseUp(final MouseEvent e) {
+        if (_ignoreInput) {
+            return;
+        }
+
         initState(e);
 
         final EnumMap<MouseButton, ButtonState> buttons = _lastState.getButtonStates();
@@ -116,7 +125,8 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
         setStateForButton(e, buttons, ButtonState.UP);
 
         final MouseButton b = getButtonForEvent(e);
-        if (_clickArmed.contains(b) && (System.currentTimeMillis() - _lastClickTime.get(b) <= MouseState.CLICK_TIME_MS)) {
+        if (_clickArmed.contains(b)
+                && (System.currentTimeMillis() - _lastClickTime.get(b) <= MouseState.CLICK_TIME_MS)) {
             _clicks.add(b); // increment count of clicks for button b.
             // XXX: Note the double event add... this prevents sticky click counts, but is it the best way?
             addNewState(e, 0, buttons, EnumMultiset.create(_clicks));
@@ -129,7 +139,7 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
     }
 
     private int getDX(final MouseEvent e) {
-        return e.x - _lastState.getX();
+        return getArdor3DX(e) - _lastState.getX();
     }
 
     private int getDY(final MouseEvent e) {
@@ -137,13 +147,36 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
     }
 
     /**
+     * Scale (for HighDPI, if needed) the X coordinate of the event.
+     *
      * @param e
      *            our mouseEvent
-     * @return the Y coordinate of the event, flipped relative to the component since we expect an origin in the lower
-     *         left corner.
+     * @return the scaled X coordinate of the event.
+     */
+    private int getArdor3DX(final MouseEvent e) {
+        final int x = e.x;
+        if (_control instanceof Canvas) {
+            final Canvas canvas = (Canvas) _control;
+            return (int) Math.round(canvas.scaleToScreenDpi(x));
+        }
+        return x;
+    }
+
+    /**
+     * Scale (for HighDPI) and flip the Y coordinate of the event.
+     *
+     * @param e
+     *            our mouseEvent
+     * @return the scaled Y coordinate of the event, flipped relative to the component since we expect an origin in the
+     *         lower left corner.
      */
     private int getArdor3DY(final MouseEvent e) {
-        return _control.getSize().y - e.y;
+        final int y = _control.getSize().y - e.y;
+        if (_control instanceof Canvas) {
+            final Canvas canvas = (Canvas) _control;
+            return (int) Math.round(canvas.scaleToScreenDpi(y));
+        }
+        return y;
     }
 
     private void setStateForButton(final MouseEvent e, final EnumMap<MouseButton, ButtonState> buttons,
@@ -171,6 +204,10 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
     }
 
     public synchronized void mouseMove(final MouseEvent mouseEvent) {
+        if (_ignoreInput) {
+            return;
+        }
+
         _clickArmed.clear();
         _clicks.clear();
 
@@ -181,6 +218,10 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
     }
 
     public synchronized void mouseScrolled(final MouseEvent mouseEvent) {
+        if (_ignoreInput) {
+            return;
+        }
+
         initState(mouseEvent);
 
         addNewState(mouseEvent, mouseEvent.count, _lastState.getButtonStates(), null);
@@ -188,14 +229,13 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
 
     private void initState(final MouseEvent mouseEvent) {
         if (_lastState == null) {
-            _lastState = new MouseState(mouseEvent.x, getArdor3DY(mouseEvent), 0, 0, 0, null, null);
+            _lastState = new MouseState(getArdor3DX(mouseEvent), getArdor3DY(mouseEvent), 0, 0, 0, null, null);
         }
     }
 
     private void addNewState(final MouseEvent mouseEvent, final int wheelDX,
             final EnumMap<MouseButton, ButtonState> buttons, final Multiset<MouseButton> clicks) {
-
-        final MouseState newState = new MouseState(mouseEvent.x, getArdor3DY(mouseEvent), getDX(mouseEvent),
+        final MouseState newState = new MouseState(getArdor3DX(mouseEvent), getArdor3DY(mouseEvent), getDX(mouseEvent),
                 getDY(mouseEvent), wheelDX, buttons, clicks);
 
         _upcomingEvents.add(newState);
@@ -213,5 +253,15 @@ public class SwtMouseWrapper implements MouseWrapper, MouseListener, MouseMoveLi
                 return _upcomingEvents.poll();
             }
         }
+    }
+
+    @Override
+    public void setIgnoreInput(final boolean ignore) {
+        _ignoreInput = ignore;
+    }
+
+    @Override
+    public boolean isIgnoreInput() {
+        return _ignoreInput;
     }
 }

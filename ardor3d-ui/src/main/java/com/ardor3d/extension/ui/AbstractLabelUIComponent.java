@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui;
@@ -49,22 +49,22 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
         int width = 0;
         int height = 0;
 
-        final String textVal = getText();
-        if (textVal != null && textVal.length() > 0) {
+        final boolean hasTextValue = _uiText != null;
+        if (hasTextValue) {
             width += Math.round(_uiText.getWidth());
             height += Math.round(_uiText.getHeight());
         }
 
         if (_iconDimensions != null) {
             width += _iconDimensions.getWidth();
-            if (textVal != null && textVal.length() > 0) {
+            if (hasTextValue) {
                 width += _gap;
             }
 
             height = Math.max(_iconDimensions.getHeight(), height);
         }
 
-        setMinimumContentSize(width, height);
+        setLayoutMinimumContentSize(width, height);
         if (getContentWidth() < width) {
             setContentWidth(width);
         }
@@ -74,31 +74,51 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
         fireComponentDirty();
     }
 
-    /**
-     * @return the currently set text value of this label.
-     */
+    public String getRawText() {
+        return _uiText != null ? _uiText.getRawText() : null;
+    }
+
     public String getText() {
-        return _uiText != null ? _uiText.getText() : null;
+        return _uiText != null && _uiText.getVisibleText() != null ? _uiText.getVisibleText() : "";
     }
 
     /**
-     * Set the text for this component. Also updates the minimum size of the component.
-     * 
-     * @param text
+     * Set a new text value for this component. Also updates the minimum size of the component.
+     *
+     * @param rawText
      *            the new text
      */
-    public void setText(String text) {
-        if (text != null && text.length() == 0) {
-            text = null;
+    public void setText(String rawText) {
+        if (rawText != null && rawText.length() == 0) {
+            rawText = null;
         }
 
-        if (text != null) {
-            _uiText = TextFactory.INSTANCE.generateText(text, isStyledText(), getFontStyles(), _uiText, -1);
+        if (rawText != null) {
+            _uiText = TextFactory.INSTANCE.generateText(rawText, isStyledText(), getFontStyles(), _uiText, -1);
         } else {
             _uiText = null;
         }
 
         updateMinimumSizeFromContents();
+    }
+
+    /**
+     * Set a new text value for this component and (optionally) all contained states.
+     *
+     * @param rawText
+     *            the new text
+     * @param allStates
+     *            if true, set across all contained states as well as self.
+     */
+    public void setText(final String rawText, final boolean allStates) {
+        setText(rawText);
+        if (allStates) {
+            for (final UIState state : getStates()) {
+                if (state instanceof LabelState) {
+                    ((LabelState) state).setText(rawText);
+                }
+            }
+        }
     }
 
     public boolean isStyledText() {
@@ -127,13 +147,24 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
         _alignment = alignment;
     }
 
+    public void setAlignment(final Alignment alignment, final boolean allStates) {
+        setAlignment(alignment);
+        if (allStates) {
+            for (final UIState state : getStates()) {
+                if (state instanceof LabelState) {
+                    ((LabelState) state).setAlignment(alignment);
+                }
+            }
+        }
+    }
+
     public int getGap() {
         return _gap;
     }
 
     /**
      * Note: Also updates the minimum size of the component.
-     * 
+     *
      * @param gap
      *            the size of the gap, in pixels, between the text and the label text. This is only used if both icon
      *            and text are set.
@@ -149,7 +180,7 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
 
     /**
      * Note: Also updates the minimum size of the component.
-     * 
+     *
      * @param icon
      *            the new icon for this label.
      */
@@ -159,6 +190,27 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
             updateIconDimensionsFromIcon();
         }
         updateMinimumSizeFromContents();
+    }
+
+    /**
+     * Set a new icon value for this component and (optionally) all contained states.
+     *
+     * Note: Also updates the minimum size of the component.
+     *
+     * @param icon
+     *            the new icon for this label.
+     * @param allStates
+     *            if true, set across all contained states as well as self.
+     */
+    public void setIcon(final SubTex icon, final boolean allStates) {
+        setIcon(icon);
+        if (allStates) {
+            for (final UIState state : getStates()) {
+                if (state instanceof LabelState) {
+                    ((LabelState) state).setIcon(icon);
+                }
+            }
+        }
     }
 
     /**
@@ -175,7 +227,7 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
 
     /**
      * Overrides any currently set icon size. Call this after setting the icon to prevent overriding.
-     * 
+     *
      * @param dimensions
      *            a new icon size.
      */
@@ -191,7 +243,7 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
     @Override
     public void fireStyleChanged() {
         super.fireStyleChanged();
-        setText(getText());
+        setText(getRawText());
     }
 
     @Override
@@ -200,12 +252,12 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
         double x = 0;
         double y = 0;
         int width = 0;
-        final boolean hasTextObject = getText() != null;
+        final boolean hasTextObject = _uiText != null;
 
         // Gather our width... check for icon and text and gap.
         if (_icon != null) {
             width = _iconDimensions.getWidth();
-            if (hasTextObject && getText().length() > 0) {
+            if (hasTextObject) {
                 width += _gap;
             }
         } else if (!hasTextObject) {
@@ -233,8 +285,8 @@ public abstract class AbstractLabelUIComponent extends StateBasedUIComponent imp
             final double dix = getTotalLeft();
             final double diy = getTotalBottom();
             // draw icon
-            SubTexUtil.drawSubTex(renderer, _icon, dix + x, diy + y, _iconDimensions.getWidth(), _iconDimensions
-                    .getHeight(), getWorldTransform());
+            SubTexUtil.drawSubTex(renderer, _icon, dix + x, diy + y, _iconDimensions.getWidth(),
+                    _iconDimensions.getHeight(), getWorldTransform());
             // shift X over by width of icon and gap
             x += _iconDimensions.getWidth() + _gap;
         }

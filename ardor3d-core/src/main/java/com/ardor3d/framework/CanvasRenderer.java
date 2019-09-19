@@ -1,17 +1,18 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.framework;
 
 import com.ardor3d.annotation.MainThread;
 import com.ardor3d.renderer.Camera;
+import com.ardor3d.renderer.ContextManager;
 import com.ardor3d.renderer.RenderContext;
 import com.ardor3d.renderer.Renderer;
 import com.ardor3d.util.Ardor3dException;
@@ -20,7 +21,7 @@ import com.ardor3d.util.Ardor3dException;
  * Represents a class that knows how to render a scene using a specific Open GL implementation.
  */
 public interface CanvasRenderer {
-    void init(DisplaySettings settings, boolean doSwap);
+    void init(Canvas canvas, DisplaySettings settings, boolean doSwap);
 
     /**
      * Draw the current state of the scene.
@@ -31,14 +32,14 @@ public interface CanvasRenderer {
     /**
      * Returns the camera being used by this canvas renderer. Modifying the returned {@link Camera} instance effects the
      * view being rendered, so this method can be used to move the camera, etc.
-     * 
+     *
      * @return the camera used by this canvas renderer
      */
     Camera getCamera();
 
     /**
      * Replaces the camera being used by this canvas renderer.
-     * 
+     *
      * @param camera
      *            the camera to use
      */
@@ -46,14 +47,14 @@ public interface CanvasRenderer {
 
     /**
      * Returns the scene being used by this canvas renderer.
-     * 
+     *
      * @return the camera used by this canvas renderer
      */
     Scene getScene();
 
     /**
      * Replaces the scene being used by this canvas renderer.
-     * 
+     *
      * @param scene
      *            the scene to use
      */
@@ -61,21 +62,21 @@ public interface CanvasRenderer {
 
     /**
      * Creates a new renderer for this canvas renderer
-     * 
+     *
      * @return a new renderer
      */
     Renderer createRenderer();
 
     /**
      * Returns the renderer being used by this canvas renderer.
-     * 
+     *
      * @return the renderer used by this canvas renderer
      */
     Renderer getRenderer();
 
     /**
      * Have the CanvasRenderer claim the graphics context.
-     * 
+     *
      * @throws Ardor3dException
      *             if we can not claim the context.
      */
@@ -103,5 +104,18 @@ public interface CanvasRenderer {
      *            Renderer.BUFFER_COLOR_AND_DEPTH
      */
     void setFrameClear(final int buffers);
+
+    /**
+     * Convenience method for retrieving the CanvasRenderer set on the current RenderContext. Similar to
+     * ContextManager.getCurrentContext().getCurrentCanvasRenderer() but with null checks for current context.
+     *
+     * @return the CanvasRenderer on the current RenderContext.
+     */
+    public static CanvasRenderer getCurrent() {
+        if (ContextManager.getCurrentContext() == null) {
+            return null;
+        }
+        return ContextManager.getCurrentContext().getCurrentCanvasRenderer();
+    }
 
 }

@@ -1,17 +1,18 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.scenegraph;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 
@@ -22,32 +23,28 @@ import com.ardor3d.bounding.CollisionTreeManager;
 import com.ardor3d.intersection.IntersectionRecord;
 import com.ardor3d.intersection.Pickable;
 import com.ardor3d.intersection.PrimitiveKey;
-import com.ardor3d.math.ColorRGBA;
 import com.ardor3d.math.MathUtils;
 import com.ardor3d.math.Ray3;
 import com.ardor3d.math.Vector3;
 import com.ardor3d.math.type.ReadOnlyColorRGBA;
-import com.ardor3d.renderer.ContextCapabilities;
-import com.ardor3d.renderer.ContextManager;
+import com.ardor3d.renderer.Camera;
 import com.ardor3d.renderer.IndexMode;
-import com.ardor3d.renderer.RenderContext;
+import com.ardor3d.renderer.RenderMatrixType;
 import com.ardor3d.renderer.Renderer;
-import com.ardor3d.renderer.state.GLSLShaderObjectsState;
+import com.ardor3d.renderer.material.MaterialManager;
+import com.ardor3d.renderer.material.MaterialTechnique;
+import com.ardor3d.renderer.material.TechniquePass;
 import com.ardor3d.renderer.state.LightState;
 import com.ardor3d.renderer.state.LightUtil;
 import com.ardor3d.renderer.state.RenderState;
 import com.ardor3d.renderer.state.RenderState.StateType;
 import com.ardor3d.scenegraph.event.DirtyType;
-import com.ardor3d.scenegraph.hint.DataMode;
-import com.ardor3d.scenegraph.hint.NormalsMode;
 import com.ardor3d.util.Constants;
 import com.ardor3d.util.export.InputCapsule;
 import com.ardor3d.util.export.OutputCapsule;
 import com.ardor3d.util.geom.BufferUtils;
-import com.ardor3d.util.scenegraph.RenderDelegate;
 import com.ardor3d.util.stat.StatCollector;
 import com.ardor3d.util.stat.StatType;
-import com.google.common.collect.Lists;
 
 /**
  * A Mesh is a spatial describing a renderable geometric object. Data about the mesh is stored locally using MeshData.
@@ -72,9 +69,6 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     /** The compiled lightState for this mesh */
     protected transient LightState _lightState;
 
-    /** Default color to use when no per vertex colors are set */
-    protected ColorRGBA _defaultColor = new ColorRGBA(ColorRGBA.WHITE);
-
     /** Visibility setting that can be used after the scenegraph hierarchical culling */
     protected boolean _isVisible = true;
 
@@ -87,7 +81,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
 
     /**
      * Constructs a new <code>Mesh</code> with a given name.
-     * 
+     *
      * @param name
      *            the name of the mesh. This is required for identification purposes.
      */
@@ -97,7 +91,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
 
     /**
      * Retrieves the mesh data object used by this mesh.
-     * 
+     *
      * @return the mesh data object
      */
     public MeshData getMeshData() {
@@ -106,7 +100,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
 
     /**
      * Sets the mesh data object for this mesh.
-     * 
+     *
      * @param meshData
      *            the mesh data object
      */
@@ -118,7 +112,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
 
     /**
      * Retrieves the local bounding volume for this mesh.
-     * 
+     *
      * @param store
      *            the bounding volume
      */
@@ -128,7 +122,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
 
     /**
      * Retrieves a copy of the local bounding volume for this mesh.
-     * 
+     *
      * @param store
      *            the bounding volume
      */
@@ -142,7 +136,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     /**
      * Sets the local bounding volume for this mesh to the given bounds, updated to fit the vertices of this Mesh. Marks
      * the spatial as having dirty world bounds.
-     * 
+     *
      * @param modelBound
      *            the bounding volume - only type is used, actual values are replaced.
      */
@@ -154,7 +148,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
      * Sets the local bounding volume for this mesh to the given bounding volume. If autoCompute is true (default, if
      * not given) then we will modify the given modelBound to fit the current vertices of this mesh. This will also mark
      * the spatial as having dirty world bounds.
-     * 
+     *
      * @param modelBound
      *            the bounding volume
      * @param autoCompute
@@ -193,7 +187,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     /**
      * translates/rotates and scales the vectors of this Mesh to world coordinates based on its world settings. The
      * results are stored in the given FloatBuffer. If given FloatBuffer is null, one is created.
-     * 
+     *
      * @param store
      *            the FloatBuffer to store the results in, or null if you want one created.
      * @return store or new FloatBuffer if store == null.
@@ -217,7 +211,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     /**
      * rotates the normals of this Mesh to world normals based on its world settings. The results are stored in the
      * given FloatBuffer. If given FloatBuffer is null, one is created.
-     * 
+     *
      * @param store
      *            the FloatBuffer to store the results in, or null if you want one created.
      * @return store or new FloatBuffer if store == null.
@@ -238,171 +232,99 @@ public class Mesh extends Spatial implements Renderable, Pickable {
         return store;
     }
 
-    public void render(final Renderer renderer) {
-        if (isVisible()) {
-            render(renderer, getMeshData());
+    @Override
+    public boolean render(final Renderer renderer) {
+        final Camera camera = Camera.getCurrentCamera();
+        if (camera.checkLayerPasses(getLayer()) && isVisible()) {
+            return render(renderer, getMeshData());
         }
+
+        return false;
     }
 
-    public void render(final Renderer renderer, final MeshData meshData) {
-        // Set up MeshData in GLSLShaderObjectsState if necessary
-        // XXX: considered a hack until we settle on our shader model.
-        final GLSLShaderObjectsState glsl = (GLSLShaderObjectsState) renderer.getProperRenderState(
-                RenderState.StateType.GLSLShader, _states.get(RenderState.StateType.GLSLShader));
+    protected boolean render(final Renderer renderer, final MeshData meshData) {
 
-        if (glsl != null && glsl.getShaderDataLogic() != null) {
-            glsl.setMesh(this);
-            glsl.setNeedsRefresh(true);
+        // Grab our proper RenderTechnique
+        final MaterialTechnique technique = MaterialManager.INSTANCE.chooseTechnique(this);
+
+        // No technique? Can't render.
+        if (technique == null) {
+            return false;
         }
 
-        final InstancingManager instancing = glsl != null ? meshData.getInstancingManager() : null;
+        // Set our model matrix
+        renderer.setMatrix(RenderMatrixType.Model, getWorldTransform());
+        renderer.computeNormalMatrix(getWorldTransform().isUniformScale());
 
-        final RenderContext context = ContextManager.getCurrentContext();
-        final ContextCapabilities caps = context.getCapabilities();
+        // Walk through the passes of the technique and draw this mesh for each
+        for (final TechniquePass pass : technique.getPasses()) {
+            // setup for drawing this pass - shaders, data, states, etc.
+            pass.setupForDraw(renderer, this, meshData);
 
-        // Apply fixed function states before mesh transforms for proper function
-        for (final StateType type : StateType.values) {
-            if (type != StateType.GLSLShader && type != StateType.FragmentProgram && type != StateType.VertexProgram) {
-                renderer.applyState(type, _states.get(type));
-            }
-        }
+            // Now we draw ourselves - (TODO: Instancing support)
+            final IndexMode[] modes = meshData.getIndexModes();
+            final int[] indexLengths = meshData.getIndexLengths();
+            final IndexBufferData<?> indices = meshData.getIndices();
 
-        final boolean useVBO = (getSceneHints().getDataMode() == DataMode.VBO || getSceneHints().getDataMode() == DataMode.VBOInterleaved)
-                && caps.isVBOSupported();
-
-        if (instancing == null) {
-            final boolean transformed = renderer.doTransforms(_worldTransform);
-
-            // Apply shader states here for the ability to retrieve mesh matrices
-            renderer.applyState(StateType.GLSLShader, _states.get(StateType.GLSLShader));
-            renderer.applyState(StateType.FragmentProgram, _states.get(StateType.FragmentProgram));
-            renderer.applyState(StateType.VertexProgram, _states.get(StateType.VertexProgram));
-
-            if (useVBO) {
-                renderVBO(renderer, meshData, -1);
-            } else {
-                renderArrays(renderer, meshData, -1, caps);
-            }
-
-            if (transformed) {
-                renderer.undoTransforms(_worldTransform);
-            }
-
-        } else {
-            while (instancing.apply(this, renderer, glsl)) {
-                // Apply shader states here for the ability to retrieve mesh matrices
-                renderer.applyState(StateType.GLSLShader, _states.get(StateType.GLSLShader));
-                renderer.applyState(StateType.FragmentProgram, _states.get(StateType.FragmentProgram));
-                renderer.applyState(StateType.VertexProgram, _states.get(StateType.VertexProgram));
-
-                if (useVBO) {
-                    renderVBO(renderer, meshData, instancing.getPrimitiveCount());
+            if (indexLengths == null) {
+                if (indices != null) {
+                    renderer.drawElements(indices, 0, indices.getBufferLimit(), modes[0]);
                 } else {
-                    renderArrays(renderer, meshData, instancing.getPrimitiveCount(), caps);
+                    renderer.drawArrays(0, meshData.getVertexCount(), modes[0]);
+                }
+            } else {
+                int offset = 0;
+                int modeIndex = 0;
+                for (int i = 0; i < indexLengths.length; i++) {
+                    final int count = indexLengths[i];
+
+                    if (indices != null) {
+                        renderer.drawElements(indices, offset, count, modes[modeIndex]);
+                    } else {
+                        renderer.drawArrays(offset, count, modes[modeIndex]);
+                    }
+
+                    offset += count;
+
+                    if (modeIndex < modes.length - 1) {
+                        modeIndex++;
+                    }
                 }
             }
-        }
-    }
-
-    protected void renderArrays(final Renderer renderer, final MeshData meshData, final int primcount,
-            final ContextCapabilities caps) {
-        // Use arrays
-        if (caps.isVBOSupported()) {
-            renderer.unbindVBO();
-        }
-
-        if (RENDER_VERTEX_ONLY) {
-            renderer.applyNormalsMode(NormalsMode.Off, null);
-            renderer.setupNormalData(null);
-            renderer.applyDefaultColor(null);
-            renderer.setupColorData(null);
-            renderer.setupTextureData(null);
-        } else {
-            renderer.applyNormalsMode(getSceneHints().getNormalsMode(), _worldTransform);
-            if (getSceneHints().getNormalsMode() != NormalsMode.Off) {
-                renderer.setupNormalData(meshData.getNormalCoords());
-            } else {
-                renderer.setupNormalData(null);
-            }
-
-            if (meshData.getColorCoords() != null) {
-                renderer.setupColorData(meshData.getColorCoords());
-            } else {
-                renderer.applyDefaultColor(_defaultColor);
-                renderer.setupColorData(null);
-            }
-
-            renderer.setupTextureData(meshData.getTextureCoords());
-        }
-        renderer.setupVertexData(meshData.getVertexCoords());
-
-        if (meshData.getIndices() != null) {
-            renderer.drawElements(meshData.getIndices(), meshData.getIndexLengths(), meshData.getIndexModes(),
-                    primcount);
-        } else {
-            renderer.drawArrays(meshData.getVertexCoords(), meshData.getIndexLengths(), meshData.getIndexModes(),
-                    primcount);
         }
 
         if (Constants.stats) {
             StatCollector.addStat(StatType.STAT_VERTEX_COUNT, meshData.getVertexCount());
             StatCollector.addStat(StatType.STAT_MESH_COUNT, 1);
         }
-    }
 
-    protected void renderVBO(final Renderer renderer, final MeshData meshData, final int primcount) {
-        if (getSceneHints().getDataMode() == DataMode.VBOInterleaved) {
-            if (meshData.getColorCoords() == null) {
-                renderer.applyDefaultColor(_defaultColor);
-            }
-            renderer.applyNormalsMode(getSceneHints().getNormalsMode(), _worldTransform);
-            // Make sure we have a FBD to hold our id.
-            if (meshData.getInterleavedData() == null) {
-                final FloatBufferData interleaved = new FloatBufferData(FloatBuffer.allocate(0), 1);
-                meshData.setInterleavedData(interleaved);
-            }
-            renderer.setupInterleavedDataVBO(meshData.getInterleavedData(), meshData.getVertexCoords(),
-                    meshData.getNormalCoords(), meshData.getColorCoords(), meshData.getTextureCoords());
-        } else {
-            if (RENDER_VERTEX_ONLY) {
-                renderer.applyNormalsMode(NormalsMode.Off, null);
-                renderer.setupNormalDataVBO(null);
-                renderer.applyDefaultColor(null);
-                renderer.setupColorDataVBO(null);
-                renderer.setupTextureDataVBO(null);
-            } else {
-                renderer.applyNormalsMode(getSceneHints().getNormalsMode(), _worldTransform);
-                if (getSceneHints().getNormalsMode() != NormalsMode.Off) {
-                    renderer.setupNormalDataVBO(meshData.getNormalCoords());
-                } else {
-                    renderer.setupNormalDataVBO(null);
-                }
+        // final InstancingManager instancing = glsl != null ? meshData.getInstancingManager() : null;
 
-                if (meshData.getColorCoords() != null) {
-                    renderer.setupColorDataVBO(meshData.getColorCoords());
-                } else {
-                    renderer.applyDefaultColor(_defaultColor);
-                    renderer.setupColorDataVBO(null);
-                }
+        // final RenderContext context = ContextManager.getCurrentContext();
+        // final ContextCapabilities caps = context.getCapabilities();
 
-                renderer.setupTextureDataVBO(meshData.getTextureCoords());
-            }
-            renderer.setupVertexDataVBO(meshData.getVertexCoords());
-        }
+        // if (instancing == null) {
+        // final boolean transformed = renderer.doTransforms(_worldTransform);
 
-        if (meshData.getIndices() != null) {
-            // TODO: Maybe ask for the IndexBuffer's dynamic/static type and fall back to arrays for indices?
-            renderer.drawElementsVBO(meshData.getIndices(), meshData.getIndexLengths(), meshData.getIndexModes(),
-                    primcount);
-        } else {
-            renderer.drawArrays(meshData.getVertexCoords(), meshData.getIndexLengths(), meshData.getIndexModes(),
-                    primcount);
-        }
+        // // Apply shader states here for the ability to retrieve mesh matrices
+        // renderer.applyState(StateType.Shader, _states.get(StateType.Shader));
 
-        if (Constants.stats) {
-            StatCollector.addStat(StatType.STAT_VERTEX_COUNT, meshData.getVertexCount());
-            StatCollector.addStat(StatType.STAT_MESH_COUNT, 1);
-        }
+        // renderVBO(renderer, meshData, -1);
+
+        // if (transformed) {
+        // renderer.undoTransforms(_worldTransform);
+        // }
+
+        // } else {
+        // while (instancing.apply(this, renderer, glsl)) {
+        // // Apply shader states here for the ability to retrieve mesh matrices
+        // renderer.applyState(StateType.Shader, _states.get(StateType.Shader));
+        //
+        // renderVBO(renderer, meshData, instancing.getPrimitiveCount());
+        // }
+        // }
+
+        return true;
     }
 
     @Override
@@ -423,7 +345,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     }
 
     /**
-     * 
+     *
      */
     @Override
     public void draw(final Renderer r) {
@@ -433,12 +355,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
             }
         }
 
-        final RenderDelegate delegate = getCurrentRenderDelegate();
-        if (delegate == null) {
-            r.draw((Renderable) this);
-        } else {
-            delegate.render(this, r);
-        }
+        r.draw((Renderable) this);
     }
 
     /**
@@ -460,37 +377,20 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     }
 
     /**
-     * <code>setDefaultColor</code> sets the color to be used if no per vertex color buffer is set.
-     * 
-     * @param color
-     */
-    public void setDefaultColor(final ReadOnlyColorRGBA color) {
-        _defaultColor.set(color);
-    }
-
-    /**
-     * 
-     * @param store
-     * @return
-     */
-    public ReadOnlyColorRGBA getDefaultColor() {
-        return _defaultColor;
-    }
-
-    /**
      * @param type
      *            StateType of RenderState we want to grab
      * @return the compiled RenderState for this Mesh, either from RenderStates applied locally or those inherited from
      *         this Mesh's ancestors. May be null if a state of the given type was never applied in either place.
      */
-    public RenderState getWorldRenderState(final StateType type) {
-        return _states.get(type);
+    @SuppressWarnings("unchecked")
+    public <T extends RenderState> T getWorldRenderState(final StateType type) {
+        return (T) _states.get(type);
     }
 
     /**
      * <code>setSolidColor</code> sets the color array of this geometry to a single color. For greater efficiency, try
      * setting the the ColorBuffer to null and using DefaultColor instead.
-     * 
+     *
      * @param color
      *            the color to set.
      */
@@ -516,13 +416,12 @@ public class Mesh extends Spatial implements Renderable, Pickable {
      */
     public void setRandomColors() {
         FloatBuffer colorBuf = _meshData.getColorBuffer();
-        if (colorBuf == null) {
+        if (colorBuf == null || colorBuf.limit() < _meshData.getVertexCount() * 4) {
             colorBuf = BufferUtils.createColorBuffer(_meshData.getVertexCount());
             _meshData.setColorBuffer(colorBuf);
-        } else {
-            colorBuf.rewind();
         }
 
+        colorBuf.rewind();
         for (int x = 0, cLength = colorBuf.limit(); x < cLength; x += 4) {
             colorBuf.put(MathUtils.nextRandomFloat());
             colorBuf.put(MathUtils.nextRandomFloat());
@@ -530,6 +429,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
             colorBuf.put(1);
         }
         colorBuf.flip();
+        _meshData.markBufferDirty(MeshData.KEY_ColorCoords);
     }
 
     // PICKABLE INTERFACE
@@ -558,7 +458,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
 
     @Override
     public IntersectionRecord intersectsPrimitivesWhere(final Ray3 ray) {
-        final List<PrimitiveKey> primitives = Lists.newArrayList();
+        final List<PrimitiveKey> primitives = new ArrayList<>();
 
         // What about Lines and Points?
         final CollisionTree ct = CollisionTreeManager.getInstance().getCollisionTree(this);
@@ -629,8 +529,9 @@ public class Mesh extends Spatial implements Renderable, Pickable {
 
         // copy our basic properties
         mesh.setModelBound(_modelBound != null ? _modelBound.clone(null) : null);
-        mesh.setDefaultColor(_defaultColor);
         mesh.setVisible(_isVisible);
+        mesh.setRenderMaterial(_material);
+        mesh._properties.putAll(_properties);
 
         // return
         return mesh;
@@ -644,7 +545,6 @@ public class Mesh extends Spatial implements Renderable, Pickable {
         }
         mesh.setMeshData(_meshData);
         mesh.setModelBound(_modelBound != null ? _modelBound.clone(null) : null);
-        mesh._defaultColor = _defaultColor;
         mesh.setVisible(_isVisible);
         return mesh;
     }
@@ -652,7 +552,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     /**
      * Let this mesh know we want to change its indices to the provided new order. Override this to provide extra
      * functionality for sub types as needed.
-     * 
+     *
      * @param newIndices
      *            the IntBufferData to switch to.
      * @param modes
@@ -669,7 +569,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     /**
      * Swap around the order of the vertex data in this Mesh. This is usually called by a tool that has attempted to
      * determine a more optimal order for vertex data.
-     * 
+     *
      * @param newVertexOrder
      *            a mapping to the desired new order, where the current location of a vertex is the index into this
      *            array and the value at that location in the array is the new location to store the vertex data.
@@ -681,7 +581,7 @@ public class Mesh extends Spatial implements Renderable, Pickable {
     /**
      * Swap around the order of the vertex data in the given MeshData. Override to provide specific behavior to the Mesh
      * object.
-     * 
+     *
      * @param newVertexOrder
      *            a mapping to the desired new order, where the current location of a vertex is the index into this
      *            array and the value at that location in the array is the new location to store the vertex data.
@@ -694,10 +594,9 @@ public class Mesh extends Spatial implements Renderable, Pickable {
 
         final FloatBufferData norms = meshData.getNormalBuffer() != null ? meshData.getVertexCoords().makeCopy() : null;
         final FloatBufferData colors = meshData.getColorBuffer() != null ? meshData.getColorCoords().makeCopy() : null;
-        final FloatBufferData fogs = meshData.getFogBuffer() != null ? meshData.getFogCoords().makeCopy() : null;
         final FloatBufferData tangents = meshData.getTangentBuffer() != null ? meshData.getTangentCoords().makeCopy()
                 : null;
-        final FloatBufferData[] uvs = new FloatBufferData[meshData.getNumberOfUnits()];
+        final FloatBufferData[] uvs = new FloatBufferData[meshData.getMaxTextureUnitUsed() + 1];
         for (int k = 0; k < uvs.length; k++) {
             final FloatBufferData tex = meshData.getTextureCoords(k);
             if (tex != null) {
@@ -714,16 +613,12 @@ public class Mesh extends Spatial implements Renderable, Pickable {
             BufferUtils.copy(meshData.getVertexBuffer(), i * verts.getValuesPerTuple(), verts.getBuffer(),
                     vert * verts.getValuesPerTuple(), verts.getValuesPerTuple());
             if (norms != null) {
-                BufferUtils.copy(meshData.getNormalBuffer(), i * norms.getValuesPerTuple(), norms.getBuffer(), vert
-                        * norms.getValuesPerTuple(), norms.getValuesPerTuple());
+                BufferUtils.copy(meshData.getNormalBuffer(), i * norms.getValuesPerTuple(), norms.getBuffer(),
+                        vert * norms.getValuesPerTuple(), norms.getValuesPerTuple());
             }
             if (colors != null) {
-                BufferUtils.copy(meshData.getColorBuffer(), i * colors.getValuesPerTuple(), colors.getBuffer(), vert
-                        * colors.getValuesPerTuple(), colors.getValuesPerTuple());
-            }
-            if (fogs != null) {
-                BufferUtils.copy(meshData.getFogBuffer(), i * fogs.getValuesPerTuple(), fogs.getBuffer(),
-                        vert * fogs.getValuesPerTuple(), fogs.getValuesPerTuple());
+                BufferUtils.copy(meshData.getColorBuffer(), i * colors.getValuesPerTuple(), colors.getBuffer(),
+                        vert * colors.getValuesPerTuple(), colors.getValuesPerTuple());
             }
             if (tangents != null) {
                 BufferUtils.copy(meshData.getTangentBuffer(), i * tangents.getValuesPerTuple(), tangents.getBuffer(),
@@ -739,7 +634,6 @@ public class Mesh extends Spatial implements Renderable, Pickable {
         meshData.setVertexCoords(verts);
         meshData.setNormalCoords(norms);
         meshData.setColorCoords(colors);
-        meshData.setFogCoords(fogs);
         meshData.setTangentCoords(tangents);
         for (int k = 0; k < uvs.length; k++) {
             if (uvs[k] != null) {
@@ -762,16 +656,14 @@ public class Mesh extends Spatial implements Renderable, Pickable {
         super.write(capsule);
         capsule.write(_meshData, "meshData", null);
         capsule.write(_modelBound, "modelBound", null);
-        capsule.write(_defaultColor, "defaultColor", new ColorRGBA(ColorRGBA.WHITE));
         capsule.write(_isVisible, "visible", true);
     }
 
     @Override
     public void read(final InputCapsule capsule) throws IOException {
         super.read(capsule);
-        _meshData = (MeshData) capsule.readSavable("meshData", null);
-        _modelBound = (BoundingVolume) capsule.readSavable("modelBound", null);
-        _defaultColor = (ColorRGBA) capsule.readSavable("defaultColor", new ColorRGBA(ColorRGBA.WHITE));
+        _meshData = capsule.readSavable("meshData", null);
+        _modelBound = capsule.readSavable("modelBound", null);
         _isVisible = capsule.readBoolean("visible", true);
     }
 }

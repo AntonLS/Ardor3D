@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
- * Ardor3D is free software: you can redistribute it and/or modify it 
+ * Ardor3D is free software: you can redistribute it and/or modify it
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.ui.util;
@@ -15,6 +15,11 @@ package com.ardor3d.extension.ui.util;
  * rectangular area and is the foundation of our UIBorder class.
  */
 public class Insets {
+
+    /**
+     * 0, 0, 0, 0
+     */
+    public final static Insets EMPTY = new Insets(0, 0, 0, 0);
 
     private int _top;
     private int _left;
@@ -30,7 +35,7 @@ public class Insets {
 
     /**
      * Constructs a new insets using the given sizes.
-     * 
+     *
      * @param top
      * @param left
      * @param bottom
@@ -42,7 +47,7 @@ public class Insets {
 
     /**
      * Constructs a new insets using the sizes from the given source.
-     * 
+     *
      * @param source
      */
     public Insets(final Insets source) {
@@ -51,7 +56,7 @@ public class Insets {
 
     /**
      * Set the size of the sides to the given values.
-     * 
+     *
      * @param top
      * @param left
      * @param bottom
@@ -120,5 +125,11 @@ public class Insets {
         result += 31 * result + getTop();
         result += 31 * result + getBottom();
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("'%1$s': top: %2$d, left: %3$d, bottom: %4$d, right: %5$d", this.getClass()
+                .getSimpleName(), getTop(), getLeft(), getBottom(), getRight());
     }
 }

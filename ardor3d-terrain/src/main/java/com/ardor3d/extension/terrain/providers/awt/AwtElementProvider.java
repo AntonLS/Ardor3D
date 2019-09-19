@@ -1,23 +1,23 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.extension.terrain.providers.awt;
 
+import java.util.LinkedList;
 import java.util.List;
 
 import com.ardor3d.math.type.ReadOnlyVector4;
-import com.google.common.collect.Lists;
 
 public class AwtElementProvider implements ElementUpdateListener {
-    private final List<AbstractAwtElement> _elements = Lists.newLinkedList();
-    private final List<ElementUpdateListener> _updateListeners = Lists.newLinkedList();
+    private final List<AbstractAwtElement> _elements = new LinkedList<>();
+    private final List<ElementUpdateListener> _updateListeners = new LinkedList<>();
 
     public List<AbstractAwtElement> getElements() {
         return _elements;

@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2008-2012 Ardor Labs, Inc.
+ * Copyright (c) 2008-2019 Bird Dog Games, Inc.
  *
  * This file is part of Ardor3D.
  *
  * Ardor3D is free software: you can redistribute it and/or modify it 
  * under the terms of its license which may be found in the accompanying
- * LICENSE file or at <http://www.ardor3d.com/LICENSE>.
+ * LICENSE file or at <https://git.io/fjRmv>.
  */
 
 package com.ardor3d.util;
@@ -99,7 +99,7 @@ public class ExtendedCamera extends Camera {
         _corners[6].addLocal(-_extents.getX(), _extents.getY(), -_extents.getZ());
         _corners[7].addLocal(-_extents.getX(), -_extents.getY(), -_extents.getZ());
 
-        final ReadOnlyMatrix4 mvMatrix = getModelViewMatrix();
+        final ReadOnlyMatrix4 mvMatrix = getViewMatrix();
         double optimalCameraNear = Double.MAX_VALUE;
         double optimalCameraFar = -Double.MAX_VALUE;
         final Vector4 position = Vector4.fetchTempInstance();
@@ -146,7 +146,7 @@ public class ExtendedCamera extends Camera {
         double fFarPlaneHeight = (_frustumTop - _frustumBottom) * fFar * 0.5 / _frustumNear;
         double fFarPlaneWidth = (_frustumRight - _frustumLeft) * fFar * 0.5 / _frustumNear;
 
-        if (getProjectionMode() == ProjectionMode.Parallel) {
+        if (getProjectionMode() == ProjectionMode.Orthographic) {
             fNearPlaneHeight = (_frustumTop - _frustumBottom) * 0.5;
             fNearPlaneWidth = (_frustumRight - _frustumLeft) * 0.5;
 
